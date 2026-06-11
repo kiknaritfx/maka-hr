@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const companies =
       user.role === "ADMIN"
         ? "all"
-        : user.companies.map((c) => c.companyId).join(",");
+        : user.companies.map((c: { companyId: number }) => c.companyId).join(",");
 
     const token = await signToken({
       sub: String(user.id),
