@@ -1,0 +1,11 @@
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+input, select, button, textarea { font-family: 'Prompt', 'Kanit', sans-serif; }
+:root {
+  --coral:  #FF6B6B;
+  --teal:   #00B4A9;
+  --yellow: #FFD93D;
+  --cloud:  #F4F6F8;
+  --ink:    #1C2833;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
