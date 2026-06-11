@@ -40,9 +40,7 @@ async function main() {
       empCode:"AG-001",companyId:ag.id,departmentId:agDepts[0].id,positionId:agPos[0].id,shiftId:shift.id,
       firstName:"สมชาย",lastName:"ใจดี",phone:"081-000-0001",email:"somchai@alphagroup.co.th",
       contractType:"MONTHLY",hireDate:new Date("2020-03-01"),status:"ACTIVE",baseSalary:95000,
-      bank:"ธนาคารกสิกรไทย",canApproveLeave:true,profileColor:"#e6faf9",profileTextColor:"#007d75",
       benefits:{create:[{name:"ค่าโทรศัพท์",amount:1500},{name:"ค่าน้ำมัน",amount:3000}]},
-      history:{create:[{date:new Date("2020-03-01"),type:"join",title:"เริ่มงานวันแรก",description:"Senior Manager · Operations"}]},
     },
   });
   await prisma.employee.upsert({
@@ -51,7 +49,6 @@ async function main() {
       empCode:"AG-002",companyId:ag.id,departmentId:agDepts[2].id,positionId:agPos[2].id,shiftId:shift.id,
       firstName:"มินตรา",lastName:"สุขใส",phone:"081-000-0004",email:"mintra@alphagroup.co.th",
       contractType:"MONTHLY",hireDate:new Date("2019-01-01"),status:"ACTIVE",baseSalary:42000,
-      bank:"ธนาคารกรุงไทย",managerId:emp1.id,profileColor:"#faeeda",profileTextColor:"#854f0b",
     },
   });
 
