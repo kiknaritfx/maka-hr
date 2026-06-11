@@ -12,7 +12,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         manager: { select: { id:true, firstName:true, lastName:true, empCode:true, position:{ select:{name:true} } } },
         subordinates: { select: { id:true, firstName:true, lastName:true, empCode:true } },
         benefits: true,
-        history: { orderBy: { date: "desc" } },
       },
     });
     if (!emp) return notFound();
