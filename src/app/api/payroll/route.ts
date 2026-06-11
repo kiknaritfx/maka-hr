@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       const gross = isPartTime && hoursWorked
         ? Number(emp.baseSalary) * hoursWorked
         : Number(emp.baseSalary);
-      const benefits = ov.benefits !== undefined ? Number(ov.benefits) : emp.benefits.reduce((s,b) => s+Number(b.amount), 0);
+      const benefits = ov.benefits !== undefined ? Number(ov.benefits) : emp.benefits.reduce((s: number, b: {amount: unknown}) => s+Number(b.amount), 0);
       const bonus = ov.bonus !== undefined ? Number(ov.bonus) : 0;
       const sso = isPartTime ? 0 : calcSSO(Number(emp.baseSalary));
       const tax = isPartTime ? 0 : (ov.tax !== undefined ? Number(ov.tax) : calcWHT(Number(emp.baseSalary), sso));
