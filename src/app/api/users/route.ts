@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
       include: { companies: { include: { company: { select:{id:true,code:true,name:true} } } } },
       orderBy: { id: "asc" },
     });
-    return ok(users.map(u => ({ ...u, password: undefined })));
+    return ok(users.map((u: Record<string, unknown>) => ({ ...u, password: undefined })));
   });
 }
 
