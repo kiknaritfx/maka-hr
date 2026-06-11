@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     });
 
     let totalGross=0, totalBenefits=0, totalBonus=0, totalTax=0, totalSso=0, totalNet=0;
-    const items = employees.map(emp => {
+    const items = employees.map((emp: typeof employees[0]) => {
       const ov = overrides?.[emp.id] || {};
       const isPartTime = emp.contractType === "PARTTIME";
       const hoursWorked = ov.hoursWorked ? Number(ov.hoursWorked) : null;
