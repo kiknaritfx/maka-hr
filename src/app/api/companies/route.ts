@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const companies = await prisma.company.findMany({
       where: session!.companies === "all"
         ? {}
-        : { id: { in: session!.companies.split(",").map(Number) } },
+        : { id: { in: session!.companies.split(",").map((s: string) => Number(s)) } },
       include: {
         departments: true,
         positions: true,

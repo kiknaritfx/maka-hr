@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const coFilter = companyId
       ? { companyId: Number(companyId) }
       : session!.companies !== "all"
-        ? { companyId: { in: session!.companies.split(",").map(Number) } }
+        ? { companyId: { in: session!.companies.split(",").map((s: string) => Number(s)) } }
         : {};
 
     if (companyId && !canAccessCompany(session!, Number(companyId))) return forbidden();

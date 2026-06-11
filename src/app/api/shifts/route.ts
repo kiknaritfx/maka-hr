@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       where.companyId = cid;
     } else {
       if (session!.companies !== "all")
-        where.companyId = { in: session!.companies.split(",").map(Number) };
+        where.companyId = { in: session!.companies.split(",").map((s: string) => Number(s)) };
     }
     const shifts = await prisma.shift.findMany({ where, include: { _count: { select: { employees: true } } }, orderBy: { id: "asc" } });
     return ok(shifts);

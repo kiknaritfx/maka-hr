@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       where.companyId = cid;
     } else {
       if (session!.companies !== "all")
-        where.companyId = { in: session!.companies.split(",").map(Number) };
+        where.companyId = { in: session!.companies.split(",").map((s: string) => Number(s)) };
     }
     const runs = await prisma.payrollRun.findMany({
       where,
