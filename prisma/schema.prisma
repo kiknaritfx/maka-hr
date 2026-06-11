@@ -8,20 +8,16 @@ datasource db {
 }
 
 model User {
-  id        Int          @id @default(autoincrement())
-  email     String       @unique
+  id        Int           @id @default(autoincrement())
+  email     String        @unique
   password  String
   name      String
-  nameEN    String?
-  role      UserRole     @default(HR)
-  status    UserStatus   @default(ACTIVE)
+  role      String        @default("HR")
+  status    String        @default("ACTIVE")
   companies UserCompany[]
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 }
-
-enum UserRole   { ADMIN HR VIEW }
-enum UserStatus { ACTIVE INACTIVE }
 
 model UserCompany {
   id        Int     @id @default(autoincrement())
@@ -33,32 +29,23 @@ model UserCompany {
 }
 
 model Company {
-  id           Int           @id @default(autoincrement())
-  code         String        @unique @db.VarChar(10)
+  id           Int          @id @default(autoincrement())
+  code         String       @unique
   name         String
   nameTH       String
-  taxId        String?
-  address      String?
-  phone        String?
-  email        String?
-  website      String?
-  color        String        @default("#e6faf9")
-  textColor    String        @default("#007d75")
-  payrollCycle String        @default("สิ้นเดือน")
-  status       CompanyStatus @default(ACTIVE)
+  color        String       @default("#e6faf9")
+  textColor    String       @default("#007d75")
+  payrollCycle String       @default("monthly")
+  status       String       @default("ACTIVE")
   users        UserCompany[]
   departments  Department[]
   positions    Position[]
   employees    Employee[]
-  holidays     Holiday[]
-  leaveTypes   LeaveType[]
   shifts       Shift[]
   payrollRuns  PayrollRun[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
-
-enum CompanyStatus { ACTIVE INACTIVE }
 
 model Department {
   id        Int        @id @default(autoincrement())
@@ -78,73 +65,36 @@ model Position {
   @@unique([companyId, name])
 }
 
-model Holiday {
-  id         Int      @id @default(autoincrement())
-  companyId  Int
-  name       String
-  date       DateTime @db.Date
-  year       Int
-  isNational Boolean  @default(false)
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-}
-
-model LeaveType {
-  id              Int     @id @default(autoincrement())
-  companyId       Int
-  name            String
-  icon            String  @default("Calendar")
-  color           String  @default("#e6faf9")
-  maxDaysPerYear  Int?
-  isPaid          Boolean @default(true)
-  requireApproval Boolean @default(true)
-  isAccumulated   Boolean @default(false)
-  noLimit         Boolean @default(false)
-  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-}
-
 model Employee {
-  id               Int               @id @default(autoincrement())
-  empCode          String            @unique
-  companyId        Int
-  departmentId     Int?
-  positionId       Int?
-  shiftId          Int?
-  managerId        Int?
-  firstName        String
-  lastName         String
-  firstNameEN      String?
-  lastNameEN       String?
-  nickname         String?
-  gender           String?
-  birthDate        DateTime?         @db.Date
-  nationalId       String?
-  phone            String
-  email            String            @unique
-  address          String?
-  contractType     ContractType      @default(MONTHLY)
-  hireDate         DateTime          @db.Date
-  status           EmpStatus         @default(PROBATION)
-  baseSalary       Decimal           @db.Decimal(12, 2)
-  bank             String?
-  bankAccount      String?
-  profileColor     String            @default("#e6faf9")
-  profileTextColor String            @default("#007d75")
-  canApproveLeave  Boolean           @default(false)
-  company          Company           @relation(fields: [companyId], references: [id])
-  department       Department?       @relation(fields: [departmentId], references: [id])
-  position         Position?         @relation(fields: [positionId], references: [id])
-  shift            Shift?            @relation(fields: [shiftId], references: [id])
-  manager          Employee?         @relation("ManagerSubordinate", fields: [managerId], references: [id])
-  subordinates     Employee[]        @relation("ManagerSubordinate")
-  benefits         EmployeeBenefit[]
-  history          EmployeeHistory[]
-  payrollItems     PayrollItem[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id              Int               @id @default(autoincrement())
+  empCode         String            @unique
+  companyId       Int
+  departmentId    Int?
+  positionId      Int?
+  shiftId         Int?
+  managerId       Int?
+  firstName       String
+  lastName        String
+  phone           String
+  email           String            @unique
+  contractType    String            @default("MONTHLY")
+  hireDate        DateTime          @db.Date
+  status          String            @default("PROBATION")
+  baseSalary      Decimal           @db.Decimal(12, 2)
+  bank            String?
+  bankAccount     String?
+  canApproveLeave Boolean           @default(false)
+  company         Company           @relation(fields: [companyId], references: [id])
+  department      Department?       @relation(fields: [departmentId], references: [id])
+  position        Position?         @relation(fields: [positionId], references: [id])
+  shift           Shift?            @relation(fields: [shiftId], references: [id])
+  manager         Employee?         @relation("Mgr", fields: [managerId], references: [id])
+  subordinates    Employee[]        @relation("Mgr")
+  benefits        EmployeeBenefit[]
+  payrollItems    PayrollItem[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 }
-
-enum ContractType { MONTHLY DAILY PARTTIME INTERN CONSULTANT }
-enum EmpStatus    { PROBATION ACTIVE RESIGNED TERMINATED }
 
 model EmployeeBenefit {
   id         Int      @id @default(autoincrement())
@@ -154,58 +104,44 @@ model EmployeeBenefit {
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
-model EmployeeHistory {
-  id          Int      @id @default(autoincrement())
-  employeeId  Int
-  date        DateTime @db.Date
-  type        String
-  title       String
-  description String?
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-}
-
 model Shift {
-  id          Int       @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   companyId   Int
   name        String
   code        String
-  startTime   String    @db.VarChar(5)
-  endTime     String    @db.VarChar(5)
-  breakMins   Int       @default(60)
-  hoursPerDay Decimal   @db.Decimal(4, 1)
+  startTime   String
+  endTime     String
+  breakMins   Int        @default(60)
+  hoursPerDay Decimal    @db.Decimal(4, 1)
   workDays    Int[]
-  shiftType   ShiftType @default(STANDARD)
-  color       String    @default("#e6faf9")
-  textColor   String    @default("#007d75")
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shiftType   String     @default("STANDARD")
+  color       String     @default("#e6faf9")
+  textColor   String     @default("#007d75")
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employees   Employee[]
   @@unique([companyId, code])
 }
 
-enum ShiftType { STANDARD SHIFT ROTATING FLEXIBLE }
-
 model PayrollRun {
-  id            Int           @id @default(autoincrement())
+  id            Int          @id @default(autoincrement())
   companyId     Int
   month         Int
   year          Int
-  status        PayrollStatus @default(DRAFT)
-  totalGross    Decimal       @default(0) @db.Decimal(14, 2)
-  totalBenefits Decimal       @default(0) @db.Decimal(14, 2)
-  totalBonus    Decimal       @default(0) @db.Decimal(14, 2)
-  totalTax      Decimal       @default(0) @db.Decimal(14, 2)
-  totalSso      Decimal       @default(0) @db.Decimal(14, 2)
-  totalNet      Decimal       @default(0) @db.Decimal(14, 2)
+  status        String       @default("DRAFT")
+  totalGross    Decimal      @default(0) @db.Decimal(14, 2)
+  totalBenefits Decimal      @default(0) @db.Decimal(14, 2)
+  totalBonus    Decimal      @default(0) @db.Decimal(14, 2)
+  totalTax      Decimal      @default(0) @db.Decimal(14, 2)
+  totalSso      Decimal      @default(0) @db.Decimal(14, 2)
+  totalNet      Decimal      @default(0) @db.Decimal(14, 2)
   approvedAt    DateTime?
   paidAt        DateTime?
-  company       Company       @relation(fields: [companyId], references: [id])
+  company       Company      @relation(fields: [companyId], references: [id])
   items         PayrollItem[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   @@unique([companyId, month, year])
 }
-
-enum PayrollStatus { DRAFT REVIEW APPROVED PAID }
 
 model PayrollItem {
   id           Int        @id @default(autoincrement())
