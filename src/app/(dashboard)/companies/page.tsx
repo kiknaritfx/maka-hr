@@ -157,7 +157,8 @@ function CompanyDetail({company,onClose,onUpdate,canEdit}:{company:Company;onClo
           const on=tab===key;
           return(
             <button key={key} onClick={()=>setTab(key as typeof tab)}
-style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",fontSize:12,fontWeight:on?500:400,color:on?TEAL:INK2,borderBottom:`2px solid ${on?TEAL:"transparent"}`,background:"transparent",border:"none",cursor:"pointer",fontFamily:F}}              <Icon size={13} strokeWidth={1.8}/>{label}
+              style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",fontSize:12,fontWeight:on?500:400,color:on?TEAL:INK2,borderBottom:`2px solid ${on?TEAL:"transparent"}`,background:"transparent",border:"none",cursor:"pointer",fontFamily:F}}>
+              <Icon size={13} strokeWidth={1.8}/>{label}
             </button>
           );
         })}
