@@ -6,9 +6,9 @@ import { ok, err, forbidden } from "@/lib/response";
 export async function GET(req: NextRequest) {
   return withAuth(req, async (_req, session) => {
     const companies = await prisma.company.findMany({
-      where: session.companies === "all"
+      where: session!.companies === "all"
         ? {}
-        : { id: { in: session.companies.split(",").map(Number) } },
+        : { id: { in: session!.companies.split(",").map(Number) } },
       include: {
         departments: true,
         positions: true,
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withAuth(req, async (_req, session) => {
-    if (session.role !== "ADMIN") return forbidden();
+    if (session!.role !== "ADMIN") return forbidden();
     const data = await req.json();
     const company = await prisma.company.create({ data });
     return ok(company, 201);
