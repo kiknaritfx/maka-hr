@@ -9,7 +9,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     if (!canAccessCompany(session!, id)) return forbidden();
     const company = await prisma.company.findUnique({
       where: { id },
-      include: { departments: true, positions: true, holidays: { orderBy: { date: "asc" } }, leaveTypes: true },
     });
     if (!company) return notFound();
     return ok(company);
