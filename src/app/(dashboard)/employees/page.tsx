@@ -97,15 +97,16 @@ function Modal(props:any){
   );
 }
 
-function MiniCalendar({value,onChange,error=""}:{value:string;onChange:(v:string)=>void;error?:string}){
+function MiniCalendar({value,onChange,error="",allowPast=false}:{value:string;onChange:(v:string)=>void;error?:string;allowPast?:boolean}){
   const [open,setOpen]=useState(false);
+  const [pickingYear,setPickingYear]=useState(false);
   const ref=useRef<HTMLDivElement>(null);
   const today=new Date();
   const init=value?new Date(value):today;
   const [vy,setVy]=useState(init.getFullYear());
   const [vm,setVm]=useState(init.getMonth());
   useEffect(()=>{
-    function h(e:MouseEvent){if(ref.current&&!ref.current.contains(e.target as Node))setOpen(false);}
+    function h(e:MouseEvent){if(ref.current&&!ref.current.contains(e.target as Node)){setOpen(false);setPickingYear(false);}}
     document.addEventListener("mousedown",h); return()=>document.removeEventListener("mousedown",h);
   },[]);
   const first=new Date(vy,vm,1).getDay();
@@ -117,11 +118,16 @@ function MiniCalendar({value,onChange,error=""}:{value:string;onChange:(v:string
   function pick(d:number|null){
     if(!d)return;
     const iso=`${vy}-${String(vm+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    onChange(iso); setOpen(false);
+    onChange(iso); setOpen(false); setPickingYear(false);
   }
   const selD=value?new Date(value):null;
+  // สร้าง year range: past=100 ปี, ไม่ใช่ past = ปีนี้ถึง +5
+  const baseYear=today.getFullYear();
+  const yearList:number[]=allowPast
+    ? Array.from({length:101},(_,i)=>baseYear-i)
+    : Array.from({length:6},(_,i)=>baseYear+i);
   return <div ref={ref} style={{position:"relative",width:"100%"}}>
-    <button type="button" onClick={()=>setOpen(o=>!o)}
+    <button type="button" onClick={()=>{setOpen(o=>!o);setPickingYear(false);}}
       style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:13,padding:"9px 12px",borderRadius:8,border:`1px solid ${error?"#F09595":open?TEAL:"#dde2e8"}`,fontFamily:F,background:WHITE,color:value?INK:INK3,cursor:"pointer",outline:"none",boxSizing:"border-box"}}>
       <span style={{display:"flex",alignItems:"center",gap:7}}><CalendarDays size={14} strokeWidth={1.8} color={value?TEAL:INK3}/>{value?formatThai(value):"เลือกวันที่"}</span>
       <ChevronDown size={13} strokeWidth={1.8} color={INK3} style={{transform:open?"rotate(180deg)":"none"}}/>
@@ -130,25 +136,41 @@ function MiniCalendar({value,onChange,error=""}:{value:string;onChange:(v:string
     {open&&<div style={{position:"absolute",top:"calc(100% + 5px)",left:0,zIndex:300,background:WHITE,borderRadius:14,border:"1px solid #dde2e8",padding:"12px 14px",width:240,boxShadow:"0 4px 16px rgba(28,40,51,.12)"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
         <button type="button" onClick={()=>{if(vm===0){setVm(11);setVy(y=>y-1);}else setVm(m=>m-1);}} style={{background:"transparent",border:"none",cursor:"pointer",color:INK2,display:"flex",padding:3,borderRadius:6}}><ChevronLeft size={14} strokeWidth={2}/></button>
-        <span style={{fontSize:13,fontWeight:500,color:INK,fontFamily:F}}>{TH_MONTHS[vm]} {vy+543}</span>
+        <button type="button" onClick={()=>setPickingYear(p=>!p)}
+          style={{background:pickingYear?"#e6faf9":"transparent",border:"none",cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:500,color:pickingYear?TEAL:INK,borderRadius:7,padding:"3px 8px"}}>
+          {TH_MONTHS[vm]} <span style={{color:TEAL}}>{vy+543}</span>
+        </button>
         <button type="button" onClick={()=>{if(vm===11){setVm(0);setVy(y=>y+1);}else setVm(m=>m+1);}} style={{background:"transparent",border:"none",cursor:"pointer",color:INK2,display:"flex",padding:3,borderRadius:6}}><ChevronRight size={14} strokeWidth={2}/></button>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
-        {TH_DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:10,color:INK3,fontFamily:F}}>{d}</div>)}
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1}}>
-        {cells.map((d,i)=>{
-          const sel=selD&&d&&selD.getFullYear()===vy&&selD.getMonth()===vm&&selD.getDate()===d;
-          const tod=d&&today.getFullYear()===vy&&today.getMonth()===vm&&today.getDate()===d;
-          return <button key={i} type="button" onClick={()=>pick(d)}
-            style={{height:28,borderRadius:7,border:"none",cursor:d?"pointer":"default",background:sel?TEAL:tod?"#e6faf9":"transparent",color:sel?WHITE:tod?TEAL:d?INK:"transparent",fontSize:12,fontFamily:F,fontWeight:sel||tod?500:400}}>
-            {d||""}
-          </button>;
-        })}
-      </div>
-      <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid #eaecef",display:"flex",justifyContent:"center"}}>
-        <button type="button" onClick={()=>{const t=new Date();setVy(t.getFullYear());setVm(t.getMonth());pick(t.getDate());}} style={{fontSize:11,color:TEAL,background:"transparent",border:"none",cursor:"pointer",fontFamily:F,fontWeight:500}}>วันนี้</button>
-      </div>
+      {pickingYear?(
+        <div style={{maxHeight:200,overflowY:"auto",display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:4}}>
+          {yearList.map(y=>(
+            <button key={y} type="button" onClick={()=>{setVy(y);setPickingYear(false);}}
+              style={{padding:"5px 0",borderRadius:7,border:"none",cursor:"pointer",background:vy===y?TEAL:"transparent",color:vy===y?WHITE:INK,fontSize:12,fontFamily:F,fontWeight:vy===y?500:400}}>
+              {y+543}
+            </button>
+          ))}
+        </div>
+      ):(
+        <>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
+            {TH_DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:10,color:INK3,fontFamily:F}}>{d}</div>)}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1}}>
+            {cells.map((d,i)=>{
+              const sel=selD&&d&&selD.getFullYear()===vy&&selD.getMonth()===vm&&selD.getDate()===d;
+              const tod=d&&today.getFullYear()===vy&&today.getMonth()===vm&&today.getDate()===d;
+              return <button key={i} type="button" onClick={()=>pick(d)}
+                style={{height:28,borderRadius:7,border:"none",cursor:d?"pointer":"default",background:sel?TEAL:tod?"#e6faf9":"transparent",color:sel?WHITE:tod?TEAL:d?INK:"transparent",fontSize:12,fontFamily:F,fontWeight:sel||tod?500:400}}>
+                {d||""}
+              </button>;
+            })}
+          </div>
+          <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid #eaecef",display:"flex",justifyContent:"center"}}>
+            <button type="button" onClick={()=>{const t=new Date();setVy(t.getFullYear());setVm(t.getMonth());pick(t.getDate());}} style={{fontSize:11,color:TEAL,background:"transparent",border:"none",cursor:"pointer",fontFamily:F,fontWeight:500}}>วันนี้</button>
+          </div>
+        </>
+      )}
     </div>}
   </div>;
 }
@@ -659,7 +681,7 @@ function AddWizard({company,depts,positions,onClose,onSave}:any){
                 <FInput label="Last Name (EN)" value={form.lastNameEN} onChange={e=>setForm({...form,lastNameEN:e.target.value})}/>
                 <FInput label="ชื่อเล่น" value={form.nickname} onChange={e=>setForm({...form,nickname:e.target.value})}/>
                 <FSelect label="เพศ" value={form.gender} onChange={e=>setForm({...form,gender:e.target.value})} options={["ชาย","หญิง","ไม่ระบุ"]}/>
-                <div><FL>วันเกิด</FL><MiniCalendar value={form.birthDate} onChange={v=>setForm({...form,birthDate:v})}/></div>
+                <div><FL>วันเกิด</FL><MiniCalendar value={form.birthDate} onChange={v=>setForm({...form,birthDate:v})} allowPast={true}/></div>
                 <FInput label="เลขบัตรประชาชน" value={form.nationalId} onChange={e=>setForm({...form,nationalId:e.target.value})} placeholder="1-XXXX-XXXXX-XX-X"/>
                 <FInput label="โทรศัพท์" req={true} value={form.phone} onChange={e=>{setForm({...form,phone:e.target.value});setErrors({...errors,phone:""}); }} error={errors.phone} placeholder="08X-XXX-XXXX"/>
                 <FInput label="อีเมล" req={true} type="email" value={form.email} onChange={e=>{setForm({...form,email:e.target.value});setErrors({...errors,email:""});}} error={errors.email} placeholder="name@company.co.th"/>
@@ -781,6 +803,7 @@ export default function EmployeesPage(){
 
   const [companies,setCompanies]=useState([] as Company[]);
   const [company,setCompany]=useState(null as Company|null);
+  const [initDone,setInitDone]=useState(false);
   const [emps,setEmps]=useState([] as Employee[]);
   const [depts,setDepts]=useState([] as Dept[]);
   const [positions,setPositions]=useState([] as Pos[]);
@@ -791,8 +814,11 @@ export default function EmployeesPage(){
 
   useEffect(()=>{
     apiFetch("/api/companies").then((r:any)=>{
-      if(r.data)setCompanies(r.data as Company[]);
-    }).finally(()=>setLoadingCos(false));
+      if(r.data){
+        setCompanies(r.data as Company[]);
+        if(r.data.length>0 && !company) setCompany(r.data[0] as Company);
+      }
+    }).finally(()=>{setLoadingCos(false);setInitDone(true);});
   },[]);
 
   useEffect(()=>{
@@ -821,8 +847,7 @@ export default function EmployeesPage(){
     setOffTarget(null);
   }
 
-  if(loadingCos) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:INK3,fontFamily:F,fontSize:13}}>กำลังโหลด...</div>;
-  if(!company) return <CompanyPicker companies={companies} onSelect={(c:any)=>{setCompany(c);setSelectedEmp(null);}}/>;
+  if(loadingCos||!initDone||!company) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:INK3,fontFamily:F,fontSize:13}}>กำลังโหลด...</div>;
 
   if(selectedEmp) return (
     <>
