@@ -32,7 +32,7 @@ function formatThai(iso:string){
 }
 const CO_COLORS:[string,string][]=[["#fff0f0","#cc4444"],["#e6faf9","#007d75"],["#eeedfe","#534ab7"],["#faeeda","#854f0b"],["#e6f1fb","#185fa5"],["#fbeaf0","#993556"],["#EAF3DE","#3B6D11"]];
 const CYCLES=["สิ้นเดือน","วันที่ 25","วันที่ 28","วันที่ 15","ทุก 2 สัปดาห์"];
-const LEAVE_ICON_MAP:Record<string,React.ComponentType<{size?:number;strokeWidth?:number}>>={Umbrella,HeartPulse,Briefcase,Baby,Users,Award,CalendarDays};
+const LEAVE_ICON_MAP:Record<string,React.ElementType>={Umbrella,HeartPulse,Briefcase,Baby,Users,Award,CalendarDays};
 
 function Dot({color,size=9}:{color:string;size?:number}){
   return <span style={{width:size,height:size,borderRadius:"50%",background:color,display:"inline-block",flexShrink:0}}/>;
@@ -57,7 +57,7 @@ function Btn({children,onClick,variant="ghost",disabled=false,style:sx={}}:{chil
     {children}
   </button>;
 }
-function IBtn({Icon,onClick,label}:{Icon:React.ComponentType<{size?:number;strokeWidth?:number}>;onClick?:()=>void;label?:string}){
+function IBtn({Icon,onClick,label}:{Icon:React.ElementType;onClick?:()=>void;label?:string}){
   return <button aria-label={label} onClick={onClick}
     style={{width:28,height:28,borderRadius:7,background:"transparent",border:"1px solid #eaecef",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:INK3,fontFamily:F}}>
     <Icon size={13} strokeWidth={1.8}/>
@@ -433,7 +433,7 @@ function CompanyDetail({company:initCo,onBack,canEdit}:{company:Company;onBack:(
               </div>
             </div>}
             {[co.phone&&["โทรศัพท์",co.phone,Phone],co.email&&["อีเมล HR",co.email,Mail],co.website&&["เว็บไซต์",co.website,Globe]].filter(Boolean).map((item:unknown)=>{
-              const [l,v,Ic]=(item as [string,string,React.ComponentType<{size?:number;strokeWidth?:number;color?:string}>]);
+              const [l,v,Ic]=(item as [string,string,React.ElementType]);
               return <div key={l}>
                 <div style={{fontSize:11,color:INK3,textTransform:"uppercase",letterSpacing:".4px",marginBottom:4}}>{l}</div>
                 <div style={{display:"flex",alignItems:"center",gap:7,background:BG,borderRadius:8,padding:"9px 12px",fontSize:13,color:INK}}>
