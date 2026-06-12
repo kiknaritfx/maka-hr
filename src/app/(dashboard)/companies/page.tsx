@@ -5,7 +5,7 @@ import {
   SlidersHorizontal, ChevronRight, ChevronLeft, ArrowLeft,
   Check, X, Folder, FolderOpen, Award, Umbrella, HeartPulse,
   Briefcase, Baby, Users, CalendarDays, Image, ShieldCheck,
-  Sparkles, Pause, MapPin, Phone, Mail, Globe, Tag, ChevronDown
+  Sparkles, Pause, MapPin, Phone, Mail, Globe, Tag, ChevronDown, Clock
 } from "lucide-react";
 import { apiFetch } from "@/hooks/useApi";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,7 +27,18 @@ interface Company {
   payrollCycle:string; status:string; taxId?:string; address?:string; phone?:string;
   email?:string; website?:string; logoUrl?:string; departments:Dept[]; positions:Pos[];
   _count?:{employees:number};
+  otSettings?:string;
 }
+
+// ── OT Rates (Thai Labour Law) ──
+interface OTRate { key:string; label:string; desc:string; multiplier:number; color:string; }
+const OT_RATES:OTRate[] = [
+  {key:"wd_ot",    label:"OT วันทำงาน",          desc:"ทำงานเกินเวลาปกติในวันทำงาน",              multiplier:1.5, color:"#e6f1fb"},
+  {key:"off_work", label:"ทำงานในวันหยุด",        desc:"ทำงานในเวลาปกติของวันหยุด",               multiplier:1.0, color:"#faeeda"},
+  {key:"off_ot",   label:"OT วันหยุด",            desc:"ทำงานเกินเวลาปกติในวันหยุด",              multiplier:3.0, color:"#fff0f0"},
+  {key:"ph_work",  label:"ทำงานวันหยุดนักขัตฤกษ์",desc:"ทำงานในเวลาปกติของวันหยุดนักขัตฤกษ์",   multiplier:2.0, color:"#fbeaf0"},
+  {key:"ph_ot",    label:"OT วันหยุดนักขัตฤกษ์", desc:"ทำงานเกินเวลาในวันหยุดนักขัตฤกษ์",       multiplier:3.0, color:"#fcebeb"},
+];
 
 // ── Thai National Holidays ──
 const THAI_HOLIDAYS:{[y:number]:{name:string;date:string}[]} = {
@@ -518,7 +529,7 @@ function CompanyList({onSelect,canEdit}:{onSelect:(c:Company)=>void;canEdit:bool
 // ════════════════════════════════════════
 function CompanyDetail({company:initCo,onBack,canEdit}:{company:Company;onBack:()=>void;canEdit:boolean}){
   const [co,setCo]=useState<Company>(initCo);
-  const [tab,setTab]=useState<"info"|"dept"|"holiday"|"leave">("info");
+  const [tab,setTab]=useState<"info"|"dept"|"holiday"|"leave"|"ot">("info");
   const [depts,setDepts]=useState<Dept[]>([]);
   const [positions,setPositions]=useState<Pos[]>([]);
   const [holidays,setHolidays]=useState<Holiday[]>([]);
@@ -547,6 +558,18 @@ function CompanyDetail({company:initCo,onBack,canEdit}:{company:Company;onBack:(
   const [showAddLT,setShowAddLT]=useState(false);
   const [editLT,setEditLT]=useState<LeaveType|null>(null);
   const [ltForm,setLtForm]=useState({name:"",icon:"Umbrella",color:"#e6faf9",maxDaysPerYear:"",isPaid:true,requireApproval:true,isAccumulated:false,noLimit:false});
+
+  // OT settings
+  const [otEnabled,setOtEnabled]=useState<Record<string,boolean>>(()=>{
+    try{ const s=co.otSettings; return s?JSON.parse(s as string):{wd_ot:true,off_work:true,off_ot:true,ph_work:true,ph_ot:true}; }catch{ return {wd_ot:true,off_work:true,off_ot:true,ph_work:true,ph_ot:true}; }
+  });
+  const [otSaving,setOtSaving]=useState(false);
+  async function saveOtSettings(){
+    setOtSaving(true);
+    await apiFetch(`/api/companies/${co.id}`,{method:"PATCH",body:JSON.stringify({otSettings:JSON.stringify(otEnabled)})});
+    setCo(prev=>({...prev,otSettings:JSON.stringify(otEnabled)}));
+    setOtSaving(false);
+  }
 
   // Logo upload
   const logoRef=useRef<HTMLInputElement>(null);
@@ -602,7 +625,7 @@ function CompanyDetail({company:initCo,onBack,canEdit}:{company:Company;onBack:(
     img.src=url;
   }
 
-  const TABS=[{key:"info",Icon:Building2,label:"ข้อมูลบริษัท"},{key:"dept",Icon:FolderOpen,label:"แผนก & ตำแหน่ง"},{key:"holiday",Icon:CalendarDays,label:"วันหยุดประจำปี"},{key:"leave",Icon:Umbrella,label:"ประเภทการลา"}];
+  const TABS=[{key:"info",Icon:Building2,label:"ข้อมูลบริษัท"},{key:"dept",Icon:FolderOpen,label:"แผนก & ตำแหน่ง"},{key:"holiday",Icon:CalendarDays,label:"วันหยุดประจำปี"},{key:"leave",Icon:Umbrella,label:"ประเภทการลา"},{key:"ot",Icon:Clock,label:"อัตรา OT"}];
   const LTIcon=LEAVE_ICON_MAP[ltForm.icon]||Umbrella;
 
   return (
@@ -937,6 +960,50 @@ function CompanyDetail({company:initCo,onBack,canEdit}:{company:Company;onBack:(
       )}
 
       {/* Add/Edit Leave Type Modal */}
+        {/* ── OT tab ── */}
+        {tab==="ot"&&(
+          <div style={{maxWidth:620}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:500,color:INK,marginBottom:4}}>อัตราค่าล่วงเวลา (OT)</div>
+                <div style={{fontSize:12,color:INK3}}>กำหนดว่าบริษัทนี้ใช้อัตรา OT รายการใดบ้าง ตามพ.ร.บ.คุ้มครองแรงงาน</div>
+              </div>
+              {canEdit&&<Btn variant="teal" onClick={saveOtSettings} disabled={otSaving}><Check size={13} strokeWidth={2.5}/>{otSaving?"กำลังบันทึก...":"บันทึก"}</Btn>}
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {OT_RATES.map(r=>{
+                const on=otEnabled[r.key]??true;
+                return (
+                  <div key={r.key} onClick={()=>canEdit&&setOtEnabled(prev=>({...prev,[r.key]:!on}))}
+                    style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderRadius:14,border:`2px solid ${on?"#00B4A9":"#eaecef"}`,background:on?r.color:BG,cursor:canEdit?"pointer":"default",transition:"all .15s"}}>
+                    <div style={{width:40,height:40,borderRadius:11,background:on?"rgba(0,180,169,.12)":"#eaecef",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <Clock size={18} strokeWidth={1.8} color={on?TEAL:INK3}/>
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:500,color:on?INK:INK3,marginBottom:2}}>{r.label}</div>
+                      <div style={{fontSize:11,color:INK3}}>{r.desc}</div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontSize:18,fontWeight:700,color:on?TEAL:INK3}}>×{r.multiplier.toFixed(1)}</div>
+                      <div style={{fontSize:10,color:INK3}}>เท่า</div>
+                    </div>
+                    <div style={{width:22,height:22,borderRadius:6,background:on?TEAL:"transparent",border:`2px solid ${on?TEAL:"#dde2e8"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      {on&&<Check size={12} strokeWidth={2.5} color="#fff"/>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{marginTop:18,padding:"12px 16px",background:"#fffbea",borderRadius:12,border:"1px solid #f0d060"}}>
+              <div style={{fontSize:12,fontWeight:500,color:"#8a6d00",marginBottom:4}}>📋 อ้างอิงตามกฎหมาย</div>
+              <div style={{fontSize:11,color:"#8a6d00",lineHeight:1.6}}>
+                พ.ร.บ.คุ้มครองแรงงาน พ.ศ. 2541 มาตรา 61–63 กำหนดอัตราค่า OT ขั้นต่ำ
+                โดยอัตราที่แสดงเป็นอัตราขั้นต่ำตามกฎหมาย บริษัทสามารถกำหนดสูงกว่าได้
+              </div>
+            </div>
+          </div>
+        )}
+
       {showAddLT&&(
         <Modal title={editLT?"แก้ไขประเภทการลา":"เพิ่มประเภทการลา"} onClose={()=>setShowAddLT(false)} width={480}>
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
