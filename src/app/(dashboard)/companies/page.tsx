@@ -585,9 +585,21 @@ function CompanyDetail({company:initCo,onBack,canEdit}:{company:Company;onBack:(
 
   function handleLogoChange(e:React.ChangeEvent<HTMLInputElement>){
     const file=e.target.files?.[0]; if(!file)return;
-    const reader=new FileReader();
-    reader.onload=ev=>{ setLogoPreview(ev.target?.result as string); };
-    reader.readAsDataURL(file);
+    const img=document.createElement("img");
+    const url=URL.createObjectURL(file);
+    img.onload=async()=>{
+      const MAX=256;
+      const scale=Math.min(1,MAX/Math.max(img.width,img.height));
+      const canvas=document.createElement("canvas");
+      canvas.width=Math.round(img.width*scale); canvas.height=Math.round(img.height*scale);
+      canvas.getContext("2d")!.drawImage(img,0,0,canvas.width,canvas.height);
+      const base64=canvas.toDataURL("image/jpeg",0.85);
+      URL.revokeObjectURL(url);
+      setLogoPreview(base64);
+      await apiFetch(`/api/companies/${co.id}`,{method:"PATCH",body:JSON.stringify({logoUrl:base64})});
+      setCo(prev=>({...prev,logoUrl:base64}));
+    };
+    img.src=url;
   }
 
   const TABS=[{key:"info",Icon:Building2,label:"ข้อมูลบริษัท"},{key:"dept",Icon:FolderOpen,label:"แผนก & ตำแหน่ง"},{key:"holiday",Icon:CalendarDays,label:"วันหยุดประจำปี"},{key:"leave",Icon:Umbrella,label:"ประเภทการลา"}];
