@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import {
   Users, Plus, Search, Download, ChevronRight, ChevronLeft, ChevronDown,
   Pencil, Trash2, Check, X, ArrowLeft, UserPlus, UserMinus, UserX,
-  UserCheck, Briefcase, Clock, Gift, Star, AlertCircle, FileText,
+  UserCheck, Briefcase, Clock, Gift, AlertCircle, FileText,
   Wallet, CalendarDays, Building2
 } from "lucide-react";
 import { apiFetch } from "@/hooks/useApi";
@@ -233,10 +233,10 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
   const [fDept,setFDept]=useState("ทั้งหมด");
   const [fStatus,setFStatus]=useState("ทั้งหมด");
   const [showWizard,setShowWizard]=useState(false);
-  const [positions,setPositions]=useState<Pos[]>([]);
+  const [positions,setPositions]=useState([] as Pos[]);
 
   useEffect(()=>{
-    apiFetch<Pos[]>(`/api/companies/${company.id}/positions`).then(r=>{if(r.data)setPositions(r.data);});
+    apiFetch(`/api/companies/${company.id}/positions`).then(r=>{if(r.data)setPositions(r.data);});
   },[company.id]);
 
   const list=emps.filter(e=>{
@@ -362,15 +362,16 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
 // ════════════════════════════════════════
 //  EMPLOYEE PROFILE
 // ════════════════════════════════════════
-function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate,onOffboard}:{
+type EmpProfileProps = {
   emp:Employee;company:Company;allEmps:Employee[];depts:Dept[];positions:Pos[];
   onBack:()=>void;onUpdate:(e:Employee)=>void;onOffboard:(e:Employee)=>void;
-}){
-  const [emp,setEmp]=useState<Employee>(initEmp);
+}
+function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate,onOffboard}:EmpProfileProps){
+  const [emp,setEmp]=useState(initEmp as Employee);
   const [tab,setTab]=useState("info");
   const [editing,setEditing]=useState(false);
   const [form,setForm]=useState({...initEmp,hireDate:isoToInput(initEmp.hireDate),birthDate:isoToInput(initEmp.birthDate||"")});
-  const [benefits,setBenefits]=useState<Benefit[]>([...(initEmp.benefits||[])]);
+  const [benefits,setBenefits]=useState([...(initEmp.benefits||[])] as Benefit[]);
   const [newBen,setNewBen]=useState({name:"",amount:""});
   const [saving,setSaving]=useState(false);
 
@@ -387,35 +388,30 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
       managerId:form.managerId||null,
       benefits:benefits.map(b=>({name:b.name,amount:Number(b.amount)})),
     };
-    const r=await apiFetch<Employee>(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify(payload)});
+    const r=await apiFetch(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify(payload)});
     if(r.data){const u={...emp,...r.data,benefits:benefits};setEmp(u);onUpdate(u);}
     setSaving(false);setEditing(false);
   }
 
   async function toggleApprove(){
-    const r=await apiFetch<Employee>(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify({canApproveLeave:!emp.canApproveLeave})});
+    const r=await apiFetch(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify({canApproveLeave:!emp.canApproveLeave})});
     if(r.data){const u={...emp,...r.data};setEmp(u);onUpdate(u);}
   }
 
   async function saveBenefits(nb:Benefit[]){
     setBenefits(nb);
-    const r=await apiFetch<Employee>(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify({benefits:nb.map(b=>({name:b.name,amount:Number(b.amount)}))})});
+    const r=await apiFetch(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify({benefits:nb.map(b=>({name:b.name,amount:Number(b.amount)}))})});
     if(r.data){const u={...emp,...r.data,benefits:nb};setEmp(u);onUpdate(u);}
   }
 
   const TABS=[
     {key:"info",Icon:Users,label:"ข้อมูลส่วนตัว"},
     {key:"contract",Icon:FileText,label:"สัญญาจ้าง"},
-    {key:"salary",Icon:Wallet,label:"เงินเดือน & OT"},
+    {key:"salary",Icon:Wallet,label:"เงินเดือน และ OT"},
     {key:"benefits",Icon:Gift,label:"สวัสดิการ"},
     {key:"leave",Icon:UserCheck,label:"สิทธิ์อนุมัติลา"},
   ];
-  const HI:Record<string,{Icon:React.ElementType;bg:string;tc:string}>={
-    join:{Icon:UserCheck,bg:"#e6faf9",tc:"#007d75"},
-    salary:{Icon:Wallet,bg:"#faeeda",tc:"#854f0b"},
-    bonus:{Icon:Star,bg:"#fffbea",tc:"#8a6d00"},
-    warn:{Icon:AlertCircle,bg:"#fff0f0",tc:"#cc4444"},
-  };
+
 
   return (
     <div style={{fontFamily:F,background:BG,minHeight:"100vh"}}>
@@ -662,7 +658,7 @@ function AddWizard({company,depts,positions,onClose,onSave}:{
     baseSalary:"",bank:"ธนาคารกสิกรไทย",bankAccount:"",
     profileColor:"#e6faf9",profileTextColor:"#007d75",
   });
-  const [errors,setErrors]=useState<Record<string,string>>({});
+  const [errors,setErrors]=useState({} as Record<string,string>);
   const [saving,setSaving]=useState(false);
 
   function v1(){
@@ -698,7 +694,7 @@ function AddWizard({company,depts,positions,onClose,onSave}:{
       profileColor:form.profileColor,profileTextColor:form.profileTextColor,
       canApproveLeave:false,
     };
-    const r=await apiFetch<Employee>("/api/employees",{method:"POST",body:JSON.stringify(payload)});
+    const r=await apiFetch("/api/employees",{method:"POST",body:JSON.stringify(payload)});
     if(r.data) onSave(r.data);
     setSaving(false);
   }
@@ -884,22 +880,72 @@ export default function EmployeesPage(){
   const {user}=useAuth();
   const canEdit=user?.role==="ADMIN"||user?.role==="HR";
 
-  const [companies,setCompanies]=useState<Company[]>([]);
-  const [company,setCompany]=useState<Company|null>(null);
-  const [emps,setEmps]=useState<Employee[]>([]);
-  const [depts,setDepts]=useState<Dept[]>([]);
-  const [positions,setPositions]=useState<Pos[]>([]);
-  const [selectedEmp,setSelectedEmp]=useState<Employee|null>(null);
-  const [offTarget,setOffTarget]=useState<Employee|null>(null);
+  const [companies,setCompanies]=useState([] as Company[]);
+  const [company,setCompany]=useState(null as Company|null);
+  const [emps,setEmps]=useState([] as Employee[]);
+  const [depts,setDepts]=useState([] as Dept[]);
+  const [positions,setPositions]=useState([] as Pos[]);
+  const [selectedEmp,setSelectedEmp]=useState(null as Employee|null);
+  const [offTarget,setOffTarget]=useState(null as Employee|null);
   const [loadingCos,setLoadingCos]=useState(true);
   const [loadingEmps,setLoadingEmps]=useState(false);
 
   useEffect(()=>{
-    apiFetch<Company[]>("/api/companies").then(r=>{
+    apiFetch("/api/companies").then(r=>{
       if(r.data){setCompanies(r.data);}
     }).finally(()=>setLoadingCos(false));
   },[]);
 
-  useEffect(()=>{
-    if(!company)return;
-    
+    setLoadingEmps(true);
+    Promise.all([
+      apiFetch(`/api/employees?companyId=${company.id}`),
+      apiFetch(`/api/companies/${company.id}/departments`),
+      apiFetch(`/api/companies/${company.id}/positions`),
+    ]).then(([er,dr,pr])=>{
+      if(er.data)setEmps(er.data);
+      if(dr.data)setDepts(dr.data);
+      if(pr.data)setPositions(pr.data);
+    }).finally(()=>setLoadingEmps(false));
+  },[company?.id]);
+
+  async function confirmOffboard(reason:string,type:string){
+    if(!offTarget)return;
+    const ns=type==="resign"?"RESIGNED":"TERMINATED";
+    const r=await apiFetch(`/api/employees/${offTarget.id}`,{method:"PATCH",body:JSON.stringify({status:ns})});
+    if(r.data){
+      const updated={...offTarget,...r.data};
+      setEmps(prev=>prev.map(e=>e.id===updated.id?updated:e));
+      if(selectedEmp?.id===updated.id) setSelectedEmp(updated);
+    }
+    setOffTarget(null);
+  }
+
+  if(loadingCos) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:INK3,fontFamily:F,fontSize:13}}>กำลังโหลด...</div>;
+
+  if(!company) return <CompanyPicker companies={companies} onSelect={c=>{setCompany(c);setSelectedEmp(null);}}/>;
+
+  if(selectedEmp) return (
+    <>
+      <EmpProfile
+        emp={selectedEmp} company={company} allEmps={emps} depts={depts} positions={positions}
+        onBack={()=>setSelectedEmp(null)}
+        onUpdate={updated=>{setSelectedEmp(updated);setEmps(prev=>prev.map(e=>e.id===updated.id?updated:e));}}
+        onOffboard={e=>setOffTarget(e)}
+      />
+      {offTarget&&<OffboardModal emp={offTarget} onClose={()=>setOffTarget(null)} onConfirm={confirmOffboard}/>}
+    </>
+  );
+
+  return (
+    <>
+      <EmpList
+        company={company} companies={companies} emps={emps} depts={depts}
+        loading={loadingEmps}
+        onChangeCompany={c=>{setCompany(c);setSelectedEmp(null);setEmps([]);}}
+        onViewEmp={e=>setSelectedEmp(e)}
+        onAddEmp={e=>setEmps(prev=>[...prev,e])}
+      />
+      {offTarget&&<OffboardModal emp={offTarget} onClose={()=>setOffTarget(null)} onConfirm={confirmOffboard}/>}
+    </>
+  );
+}
