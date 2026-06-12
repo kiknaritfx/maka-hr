@@ -673,7 +673,7 @@ function CompanyDetail({company:initCo,onBack,canEdit}:{company:Company;onBack:(
             )}
             <div style={{display:"flex",gap:6,marginBottom:10}}>
               <Dot color={TEAL}/><span style={{fontSize:11,color:INK3}}>นักขัตฤกษ์</span>
-              <Dot color={YELLOW} style={{marginLeft:8}}/><span style={{fontSize:11,color:INK3}}>เฉพาะบริษัท</span>
+              <span style={{marginLeft:8,display:"inline-flex",alignItems:"center",gap:4}}><Dot color={YELLOW}/><span style={{fontSize:11,color:INK3}}>เฉพาะบริษัท</span></span>
             </div>
             <table style={{width:"100%",borderCollapse:"separate",borderSpacing:"0 4px"}}>
               <thead><tr style={{fontSize:11,color:INK3,textAlign:"left"}}>
