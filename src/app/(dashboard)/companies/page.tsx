@@ -867,9 +867,9 @@ function CompanyDetail({company:initCo,onBack,canEdit}:{company:Company;onBack:(
 //  ROOT PAGE
 // ════════════════════════════════════════
 export default function CompaniesPage(){
-  const {session}=useAuth();
+  const {user}=useAuth();
   const [selected,setSelected]=useState<Company|null>(null);
-  const canEdit=session?.role==="ADMIN"||session?.role==="HR";
+  const canEdit=user?.role==="ADMIN"||user?.role==="HR";
   if(selected) return <CompanyDetail company={selected} onBack={()=>setSelected(null)} canEdit={canEdit}/>;
   return <CompanyList onSelect={setSelected} canEdit={canEdit}/>;
 }
