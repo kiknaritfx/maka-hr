@@ -1,5 +1,7 @@
 "use client";
+import React from "react";
 import { useEffect, useState, useRef } from "react";
+import { Company, Dept, Pos, Benefit, Employee } from "./types";
 import {
   Users, Plus, Search, Download, ChevronRight, ChevronLeft, ChevronDown,
   Pencil, Trash2, Check, X, ArrowLeft, UserPlus, UserMinus, UserX,
@@ -9,34 +11,14 @@ import {
 import { apiFetch } from "@/hooks/useApi";
 import { useAuth } from "@/hooks/useAuth";
 
-const TEAL="#00B4A9"; const CORAL="#FF6B6B"; const YELLOW="#FFD93D";
+const TEAL="#00B4A9"; const CORAL="#FF6B6B";
 const BG="#F4F6F8"; const INK="#1C2833"; const INK2="#5a6a78"; const INK3="#9aaab8"; const WHITE="#fff";
 const F="'Prompt','Kanit',sans-serif";
 
-// ── Types ──
-interface Company { id:number; code:string; name:string; nameTH:string; color:string; textColor:string; logoUrl?:string; _count?:{employees:number}; }
-interface Dept    { id:number; name:string; }
-interface Pos     { id:number; name:string; }
-interface Benefit { id?:number; name:string; amount:number; }
-interface Employee {
-  id:number; empCode:string; companyId:number;
-  firstName:string; lastName:string; firstNameEN?:string; lastNameEN?:string; nickname?:string;
-  gender?:string; birthDate?:string; nationalId?:string; phone:string; email:string; address?:string;
-  contractType:string; hireDate:string; status:string; baseSalary:number;
-  bank?:string; bankAccount?:string; profileColor:string; profileTextColor:string;
-  canApproveLeave:boolean; managerId?:number;
-  department?:{id:number;name:string}; position?:{id:number;name:string};
-  manager?:{id:number;firstName:string;lastName:string;empCode:string};
-  subordinates?:{id:number;firstName:string;lastName:string;empCode:string}[];
-  benefits:Benefit[];
-  departmentId?:number; positionId?:number;
-}
-
-const CONTRACT_TYPES=["MONTHLY","DAILY","PARTTIME","INTERN","CONSULTANT"];
-const CONTRACT_LABELS:Record<string,string>={MONTHLY:"รายเดือน",DAILY:"รายวัน",PARTTIME:"พาร์ทไทม์",INTERN:"ฝึกงาน",CONSULTANT:"ที่ปรึกษา"};
+const CONTRACT_LABELS: Record<string,string> = {MONTHLY:"รายเดือน",DAILY:"รายวัน",PARTTIME:"พาร์ทไทม์",INTERN:"ฝึกงาน",CONSULTANT:"ที่ปรึกษา"};
 const BANK_LIST=["ธนาคารกสิกรไทย","ธนาคารกรุงเทพ","ธนาคารไทยพาณิชย์","ธนาคารกรุงไทย","ธนาคารกรุงศรี","ธนาคารทหารไทยธนชาต","ธนาคารออมสิน"];
-const PROFILE_COLORS:[string,string][]=[["#e6faf9","#007d75"],["#fff0f0","#cc4444"],["#eeedfe","#534ab7"],["#faeeda","#854f0b"],["#e6f1fb","#185fa5"],["#fbeaf0","#993556"],["#EAF3DE","#3B6D11"],["#f4f6f8","#5a6a78"]];
-const EMP_STATUS:Record<string,{bg:string;color:string;label:string}>={
+const PROFILE_COLORS: Array<[string,string]> = [["#e6faf9","#007d75"],["#fff0f0","#cc4444"],["#eeedfe","#534ab7"],["#faeeda","#854f0b"],["#e6f1fb","#185fa5"],["#fbeaf0","#993556"],["#EAF3DE","#3B6D11"],["#f4f6f8","#5a6a78"]];
+const EMP_STATUS: Record<string,{bg:string;color:string;label:string}> = {
   ACTIVE:   {bg:"#e6faf9",color:"#007d75",label:"ทำงานอยู่"},
   PROBATION:{bg:"#fffbea",color:"#8a6d00",label:"ทดลองงาน"},
   LEAVE:    {bg:"#faeeda",color:"#854f0b",label:"ลาพักร้อน"},
@@ -45,35 +27,33 @@ const EMP_STATUS:Record<string,{bg:string;color:string;label:string}>={
 };
 const TH_MONTHS=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 const TH_DAYS=["อา","จ","อ","พ","พฤ","ศ","ส"];
+
 function formatThai(iso:string){if(!iso)return "—"; const d=new Date(iso); return `${d.getDate()} ${TH_MONTHS[d.getMonth()]} ${d.getFullYear()+543}`;}
 function isoToInput(iso:string){return iso?iso.split("T")[0]:"";}
-
-// ── Helpers ──
 function fname(e:Employee){return `${e.firstName} ${e.lastName}`;}
 function initials(e:Employee){return (e.firstName[0]||"")+(e.lastName[0]||"");}
 
-function Avatar({emp,size=36}:{emp:Employee;size?:number}){
+function Avatar({emp, size=36}:{emp:Employee; size?:number}){
   return <div style={{width:size,height:size,borderRadius:Math.round(size*.28),background:emp.profileColor||"#e6faf9",color:emp.profileTextColor||TEAL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:Math.round(size*.36),fontWeight:500,flexShrink:0}}>{initials(emp)}</div>;
 }
 function StatusChip({status}:{status:string}){
   const s=EMP_STATUS[status]||EMP_STATUS.ACTIVE;
   return <span style={{background:s.bg,color:s.color,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:500}}>{s.label}</span>;
 }
-function Btn({children,onClick,variant="ghost",disabled=false,style:sx={}}:{children:React.ReactNode;onClick?:()=>void;variant?:string;disabled?:boolean;style?:React.CSSProperties}){
-  const v:Record<string,React.CSSProperties>={
+function Btn({children,onClick,variant="ghost",disabled=false}:{children:React.ReactNode;onClick?:()=>void;variant?:string;disabled?:boolean}){
+  const styles: Record<string,React.CSSProperties> = {
     primary:{background:CORAL,color:WHITE,border:"none"},
     teal:{background:TEAL,color:WHITE,border:"none"},
     ghost:{background:"transparent",color:INK2,border:"1px solid #dde2e8"},
     danger:{background:"#fff0f0",color:"#cc4444",border:"1px solid #f5c4b3"},
   };
   return <button onClick={disabled?undefined:onClick} disabled={disabled}
-    style={{display:"inline-flex",alignItems:"center",gap:5,padding:"8px 14px",borderRadius:10,fontSize:13,fontWeight:500,cursor:disabled?"default":"pointer",border:"none",fontFamily:F,opacity:disabled?.4:1,...(v[variant]||v.ghost),...sx}}>
+    style={{display:"inline-flex",alignItems:"center",gap:5,padding:"8px 14px",borderRadius:10,fontSize:13,fontWeight:500,cursor:disabled?"default":"pointer",border:"none",fontFamily:F,opacity:disabled?.4:1,...(styles[variant]||styles.ghost)}}>
     {children}
   </button>;
 }
 function IBtn({Icon,onClick,label}:{Icon:React.ElementType;onClick?:()=>void;label?:string}){
-  return <button aria-label={label} onClick={onClick}
-    style={{width:28,height:28,borderRadius:7,background:"transparent",border:"1px solid #eaecef",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:INK3}}>
+  return <button aria-label={label} onClick={onClick} style={{width:28,height:28,borderRadius:7,background:"transparent",border:"1px solid #eaecef",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:INK3}}>
     <Icon size={13} strokeWidth={1.8}/>
   </button>;
 }
@@ -83,7 +63,7 @@ function FL({children,req=false}:{children:React.ReactNode;req?:boolean}){
 function FV({children}:{children:React.ReactNode}){
   return <div style={{fontSize:13,color:children?INK:INK3,background:BG,borderRadius:8,padding:"9px 12px"}}>{children||"—"}</div>;
 }
-function FI({label,value,onChange,placeholder,type="text",req=false,error=""}:{label:string;value:string;onChange:(e:React.ChangeEvent<HTMLInputElement>)=>void;placeholder?:string;type?:string;req?:boolean;error?:string}){
+function FInput({label,value,onChange,placeholder,type="text",req=false,error=""}:{label:string;value:string;onChange:(e:React.ChangeEvent<HTMLInputElement>)=>void;placeholder?:string;type?:string;req?:boolean;error?:string}){
   return <div>
     <FL req={req}>{label}</FL>
     <input type={type} value={value} onChange={onChange} placeholder={placeholder}
@@ -91,31 +71,32 @@ function FI({label,value,onChange,placeholder,type="text",req=false,error=""}:{l
     {error&&<div style={{fontSize:11,color:"#cc4444",marginTop:2}}>{error}</div>}
   </div>;
 }
-function FS({label,value,onChange,options,req=false}:{label:string;value:string;onChange:(e:React.ChangeEvent<HTMLSelectElement>)=>void;options:{value:string;label:string}[]|string[];req?:boolean}){
+function FSelect({label,value,onChange,options,req=false}:{label:string;value:string;onChange:(e:React.ChangeEvent<HTMLSelectElement>)=>void;options:Array<{value:string;label:string}|string>;req?:boolean}){
   return <div>
     <FL req={req}>{label}</FL>
-    <select value={value} onChange={onChange}
-      style={{width:"100%",fontSize:13,padding:"9px 12px",borderRadius:8,border:"1px solid #dde2e8",fontFamily:F,background:WHITE,color:INK}}>
+    <select value={value} onChange={onChange} style={{width:"100%",fontSize:13,padding:"9px 12px",borderRadius:8,border:"1px solid #dde2e8",fontFamily:F,background:WHITE,color:INK}}>
       {options.map(o=>typeof o==="string"?<option key={o} value={o}>{o}</option>:<option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
-  </div>;
+  </div>
 }
-function Modal({title,sub,onClose,children,width=560}:{title:string;sub?:string;onClose:()=>void;children:React.ReactNode;width?:number}){
-  return <div style={{position:"fixed",inset:0,background:"rgba(28,40,51,.46)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,fontFamily:F}}>
-    <div style={{background:WHITE,borderRadius:16,width,maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid #eaecef"}}>
-        <div>
-          <div style={{fontSize:15,fontWeight:500,color:INK}}>{title}</div>
-          {sub&&<div style={{fontSize:12,color:INK3,marginTop:2}}>{sub}</div>}
+function Modal(props:any){
+  const {title,sub,onClose,children,width=560}=props;
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(28,40,51,.46)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}}>
+      <div style={{background:WHITE,borderRadius:16,width,maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid #eaecef"}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:500,color:INK}}>{title}</div>
+            {sub&&<div style={{fontSize:12,color:INK3,marginTop:2}}>{sub}</div>}
+          </div>
+          <button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",color:INK3,display:"flex"}}><X size={18} strokeWidth={1.8}/></button>
         </div>
-        <button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",color:INK3,display:"flex"}}><X size={18} strokeWidth={1.8}/></button>
+        <div style={{flex:1,overflow:"auto",padding:"18px 20px"}}>{children}</div>
       </div>
-      <div style={{flex:1,overflow:"auto",padding:"18px 20px"}}>{children}</div>
     </div>
-  </div>;
+  );
 }
 
-// ── MiniCalendar ──
 function MiniCalendar({value,onChange,error=""}:{value:string;onChange:(v:string)=>void;error?:string}){
   const [open,setOpen]=useState(false);
   const ref=useRef<HTMLDivElement>(null);
@@ -142,10 +123,7 @@ function MiniCalendar({value,onChange,error=""}:{value:string;onChange:(v:string
   return <div ref={ref} style={{position:"relative",width:"100%"}}>
     <button type="button" onClick={()=>setOpen(o=>!o)}
       style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:13,padding:"9px 12px",borderRadius:8,border:`1px solid ${error?"#F09595":open?TEAL:"#dde2e8"}`,fontFamily:F,background:WHITE,color:value?INK:INK3,cursor:"pointer",outline:"none",boxSizing:"border-box"}}>
-      <span style={{display:"flex",alignItems:"center",gap:7}}>
-        <CalendarDays size={14} strokeWidth={1.8} color={value?TEAL:INK3}/>
-        {value?formatThai(value):"เลือกวันที่"}
-      </span>
+      <span style={{display:"flex",alignItems:"center",gap:7}}><CalendarDays size={14} strokeWidth={1.8} color={value?TEAL:INK3}/>{value?formatThai(value):"เลือกวันที่"}</span>
       <ChevronDown size={13} strokeWidth={1.8} color={INK3} style={{transform:open?"rotate(180deg)":"none"}}/>
     </button>
     {error&&<div style={{fontSize:11,color:"#cc4444",marginTop:2}}>{error}</div>}
@@ -175,27 +153,17 @@ function MiniCalendar({value,onChange,error=""}:{value:string;onChange:(v:string
   </div>;
 }
 
-// ════════════════════════════════════════
-//  COMPANY PICKER
-// ════════════════════════════════════════
-function CompanyPicker({companies,onSelect}:{companies:Company[];onSelect:(c:Company)=>void}){
-  const totalEmp=companies.reduce((s,c)=>s+(c._count?.employees||0),0);
+// ── Company Picker ──
+function CompanyPicker({companies,onSelect}:any){
+  const totalEmp=companies.reduce((s:number,c:any)=>s+(c._count?.employees||0),0);
   return (
     <div style={{fontFamily:F,padding:"28px 32px",background:BG,minHeight:"100vh"}}>
       <div style={{marginBottom:20}}>
         <div style={{fontSize:20,fontWeight:600,color:INK}}>จัดการพนักงาน</div>
         <div style={{fontSize:12,color:INK3,marginTop:2}}>เลือกบริษัทเพื่อดูและจัดการพนักงาน · รวม {totalEmp} คน</div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
-        {[[String(totalEmp),"พนักงานรวม",CORAL],[String(companies.length),"บริษัท",TEAL]].map(([n,l,c])=>(
-          <div key={l} style={{background:WHITE,borderRadius:14,border:"1px solid #eaecef",padding:"14px 16px"}}>
-            <div style={{fontSize:26,fontWeight:500,color:c,lineHeight:1}}>{n}</div>
-            <div style={{fontSize:12,color:INK3,marginTop:4}}>{l}</div>
-          </div>
-        ))}
-      </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
-        {companies.map(co=>(
+        {companies.map((co:any)=>(
           <div key={co.id} onClick={()=>onSelect(co)}
             style={{background:WHITE,borderRadius:14,border:"1px solid #eaecef",padding:"16px 18px",cursor:"pointer"}}
             onMouseEnter={e=>e.currentTarget.style.borderColor=TEAL}
@@ -222,13 +190,8 @@ function CompanyPicker({companies,onSelect}:{companies:Company[];onSelect:(c:Com
   );
 }
 
-// ════════════════════════════════════════
-//  EMPLOYEE LIST
-// ════════════════════════════════════════
-function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp,onAddEmp}:{
-  company:Company;companies:Company[];emps:Employee[];depts:Dept[];loading:boolean;
-  onChangeCompany:(c:Company)=>void;onViewEmp:(e:Employee)=>void;onAddEmp:(e:Employee)=>void;
-}){
+// ── Employee List ──
+function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp,onAddEmp}:any){
   const [search,setSearch]=useState("");
   const [fDept,setFDept]=useState("ทั้งหมด");
   const [fStatus,setFStatus]=useState("ทั้งหมด");
@@ -236,10 +199,10 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
   const [positions,setPositions]=useState([] as Pos[]);
 
   useEffect(()=>{
-    apiFetch(`/api/companies/${company.id}/positions`).then(r=>{if(r.data)setPositions(r.data);});
+    apiFetch(`/api/companies/${company.id}/positions`).then((r:any)=>{if(r.data)setPositions(r.data);});
   },[company.id]);
 
-  const list=emps.filter(e=>{
+  const list=emps.filter((e:any)=>{
     const q=search.toLowerCase();
     const mQ=!q||fname(e).toLowerCase().includes(q)||e.empCode.toLowerCase().includes(q)||(e.nickname||"").toLowerCase().includes(q);
     const mD=fDept==="ทั้งหมด"||e.department?.name===fDept;
@@ -249,19 +212,15 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
 
   return (
     <div style={{fontFamily:F,background:BG,minHeight:"100vh"}}>
-      {/* Header */}
       <div style={{padding:"16px 28px 12px",borderBottom:"1px solid #eaecef",background:WHITE}}>
         <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
-          <div style={{flex:1}}>
-            <div style={{fontSize:20,fontWeight:600,color:INK}}>จัดการพนักงาน</div>
-          </div>
-          {/* Company switcher */}
+          <div style={{flex:1}}><div style={{fontSize:20,fontWeight:600,color:INK}}>จัดการพนักงาน</div></div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:12,color:INK3}}>บริษัท:</span>
             <div style={{position:"relative"}}>
-              <select value={company.id} onChange={e=>{const co=companies.find(c=>c.id===Number(e.target.value));if(co)onChangeCompany(co);}}
+              <select value={company.id} onChange={(e:React.ChangeEvent<HTMLSelectElement>)=>{const co=companies.find((c:any)=>c.id===Number(e.target.value));if(co)onChangeCompany(co);}}
                 style={{appearance:"none",WebkitAppearance:"none",fontSize:13,fontWeight:500,padding:"7px 32px 7px 12px",borderRadius:9,border:`1px solid ${TEAL}`,fontFamily:F,background:"#e6faf9",color:TEAL,cursor:"pointer",outline:"none",minWidth:200}}>
-                {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+                {companies.map((c:any)=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <ChevronDown size={13} strokeWidth={2} color={TEAL} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}/>
             </div>
@@ -269,13 +228,12 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
           <Btn variant="ghost"><Download size={14} strokeWidth={1.8}/> Export</Btn>
           <Btn variant="teal" onClick={()=>setShowWizard(true)}><UserPlus size={14} strokeWidth={2}/> เพิ่มพนักงาน</Btn>
         </div>
-        {/* Status bar */}
         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
           <div style={{display:"flex",alignItems:"center",gap:6,background:company.color,borderRadius:8,padding:"4px 10px"}}>
             <div style={{width:18,height:18,borderRadius:5,background:"rgba(255,255,255,.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:600,color:company.textColor}}>{company.code}</div>
             <span style={{fontSize:11,color:company.textColor,fontWeight:500}}>{emps.length} คน</span>
           </div>
-          {Object.entries(EMP_STATUS).map(([k,v])=>{const n=emps.filter(e=>e.status===k).length;if(!n)return null;return(
+          {Object.entries(EMP_STATUS).map(([k,v])=>{const n=emps.filter((e:any)=>e.status===k).length;if(!n)return null;return(
             <div key={k} style={{display:"flex",alignItems:"center",gap:5,background:v.bg,borderRadius:20,padding:"3px 10px"}}>
               <span style={{width:7,height:7,borderRadius:"50%",background:v.color,display:"inline-block"}}/>
               <span style={{fontSize:11,color:v.color,fontWeight:500}}>{n} {v.label}</span>
@@ -283,8 +241,6 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
           );})}
         </div>
       </div>
-
-      {/* Filters */}
       <div style={{padding:"10px 28px",background:WHITE,borderBottom:"1px solid #eaecef",display:"flex",gap:10}}>
         <div style={{flex:1,display:"flex",alignItems:"center",gap:8,background:BG,border:"1px solid #dde2e8",borderRadius:10,padding:"0 12px",height:36}}>
           <Search size={14} strokeWidth={1.8} color={INK3}/>
@@ -292,19 +248,15 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
             style={{border:"none",background:"transparent",outline:"none",fontSize:13,color:INK,fontFamily:F,flex:1}}/>
           {search&&<button onClick={()=>setSearch("")} style={{background:"transparent",border:"none",cursor:"pointer",color:INK3,display:"flex"}}><X size={13} strokeWidth={2}/></button>}
         </div>
-        <select value={fDept} onChange={e=>setFDept(e.target.value)}
-          style={{fontSize:12,padding:"0 10px",borderRadius:8,border:"1px solid #dde2e8",fontFamily:F,background:WHITE,color:INK,height:36}}>
+        <select value={fDept} onChange={e=>setFDept(e.target.value)} style={{fontSize:12,padding:"0 10px",borderRadius:8,border:"1px solid #dde2e8",fontFamily:F,background:WHITE,color:INK,height:36}}>
           <option value="ทั้งหมด">แผนก: ทั้งหมด</option>
-          {depts.map(d=><option key={d.id} value={d.name}>{d.name}</option>)}
+          {depts.map((d:any)=><option key={d.id} value={d.name}>{d.name}</option>)}
         </select>
-        <select value={fStatus} onChange={e=>setFStatus(e.target.value)}
-          style={{fontSize:12,padding:"0 10px",borderRadius:8,border:"1px solid #dde2e8",fontFamily:F,background:WHITE,color:INK,height:36}}>
+        <select value={fStatus} onChange={e=>setFStatus(e.target.value)} style={{fontSize:12,padding:"0 10px",borderRadius:8,border:"1px solid #dde2e8",fontFamily:F,background:WHITE,color:INK,height:36}}>
           <option value="ทั้งหมด">สถานะ: ทั้งหมด</option>
           {Object.entries(EMP_STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
       </div>
-
-      {/* Table */}
       <div style={{padding:"16px 28px"}}>
         <div style={{background:WHITE,borderRadius:16,border:"1px solid #eaecef",overflow:"hidden"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,tableLayout:"fixed"}}>
@@ -314,10 +266,9 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
               ))}
             </tr></thead>
             <tbody>
-              {loading&&<tr><td colSpan={6} style={{padding:32,textAlign:"center",color:INK3,fontSize:13}}>กำลังโหลด...</td></tr>}
-              {list.map(e=>(
-                <tr key={e.id} onClick={()=>onViewEmp(e)}
-                  style={{borderTop:"1px solid #f0f2f5",cursor:"pointer"}}
+              {loading&&<tr><td colSpan={6} style={{padding:32,textAlign:"center",color:INK3}}>กำลังโหลด...</td></tr>}
+              {list.map((e:any)=>(
+                <tr key={e.id} onClick={()=>onViewEmp(e)} style={{borderTop:"1px solid #f0f2f5",cursor:"pointer"}}
                   onMouseEnter={el=>el.currentTarget.style.background="#fafbfc"}
                   onMouseLeave={el=>el.currentTarget.style.background="transparent"}>
                   <td style={{padding:"11px 14px"}}>
@@ -341,37 +292,24 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
                   </td>
                 </tr>
               ))}
-              {!loading&&list.length===0&&<tr><td colSpan={6} style={{padding:32,textAlign:"center",color:INK3,fontSize:13}}>ไม่พบพนักงาน</td></tr>}
+              {!loading&&list.length===0&&<tr><td colSpan={6} style={{padding:32,textAlign:"center",color:INK3}}>ไม่พบพนักงาน</td></tr>}
             </tbody>
           </table>
           <div style={{padding:"9px 14px",borderTop:"1px solid #f0f2f5",fontSize:12,color:INK3}}>แสดง {list.length} จาก {emps.length} คน</div>
         </div>
       </div>
-
-      {showWizard&&(
-        <AddWizard
-          company={company} depts={depts} positions={positions}
-          onClose={()=>setShowWizard(false)}
-          onSave={e=>{onAddEmp(e);setShowWizard(false);}}
-        />
-      )}
+      {showWizard&&<AddWizard company={company} depts={depts} positions={positions} onClose={()=>setShowWizard(false)} onSave={(e:any)=>{onAddEmp(e);setShowWizard(false);}}/>}
     </div>
   );
 }
 
-// ════════════════════════════════════════
-//  EMPLOYEE PROFILE
-// ════════════════════════════════════════
-type EmpProfileProps = {
-  emp:Employee;company:Company;allEmps:Employee[];depts:Dept[];positions:Pos[];
-  onBack:()=>void;onUpdate:(e:Employee)=>void;onOffboard:(e:Employee)=>void;
-}
-function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate,onOffboard}:EmpProfileProps){
+// ── Employee Profile ──
+function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate,onOffboard}:any){
   const [emp,setEmp]=useState(initEmp as Employee);
   const [tab,setTab]=useState("info");
   const [editing,setEditing]=useState(false);
   const [form,setForm]=useState({...initEmp,hireDate:isoToInput(initEmp.hireDate),birthDate:isoToInput(initEmp.birthDate||"")});
-  const [benefits,setBenefits]=useState([...(initEmp.benefits||[])] as Benefit[]);
+  const [benefits,setBenefits]=useState(([...(initEmp.benefits||[])]) as Benefit[]);
   const [newBen,setNewBen]=useState({name:"",amount:""});
   const [saving,setSaving]=useState(false);
 
@@ -384,38 +322,35 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
       empCode:form.empCode,contractType:form.contractType,hireDate:form.hireDate,
       status:form.status,baseSalary:Number(form.baseSalary),bank:form.bank,bankAccount:form.bankAccount,
       profileColor:form.profileColor,profileTextColor:form.profileTextColor,
-      departmentId:form.departmentId||null,positionId:form.positionId||null,
-      managerId:form.managerId||null,
+      departmentId:form.departmentId||null,positionId:form.positionId||null,managerId:form.managerId||null,
       benefits:benefits.map(b=>({name:b.name,amount:Number(b.amount)})),
     };
-    const r=await apiFetch(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify(payload)});
-    if(r.data){const u={...emp,...r.data,benefits:benefits};setEmp(u);onUpdate(u);}
+    const r:any=await apiFetch(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify(payload)});
+    if(r.data){const u={...emp,...r.data,benefits};setEmp(u);onUpdate(u);}
     setSaving(false);setEditing(false);
   }
 
   async function toggleApprove(){
-    const r=await apiFetch(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify({canApproveLeave:!emp.canApproveLeave})});
+    const r:any=await apiFetch(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify({canApproveLeave:!emp.canApproveLeave})});
     if(r.data){const u={...emp,...r.data};setEmp(u);onUpdate(u);}
   }
 
-  async function saveBenefits(nb:Benefit[]){
+  async function saveBenefits(nb:any){
     setBenefits(nb);
-    const r=await apiFetch(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify({benefits:nb.map(b=>({name:b.name,amount:Number(b.amount)}))})});
+    const r:any=await apiFetch(`/api/employees/${emp.id}`,{method:"PATCH",body:JSON.stringify({benefits:nb.map((b:any)=>({name:b.name,amount:Number(b.amount)}))})});
     if(r.data){const u={...emp,...r.data,benefits:nb};setEmp(u);onUpdate(u);}
   }
 
   const TABS=[
     {key:"info",Icon:Users,label:"ข้อมูลส่วนตัว"},
     {key:"contract",Icon:FileText,label:"สัญญาจ้าง"},
-    {key:"salary",Icon:Wallet,label:"เงินเดือน และ OT"},
+    {key:"salary",Icon:Wallet,label:"เงินเดือน"},
     {key:"benefits",Icon:Gift,label:"สวัสดิการ"},
-    {key:"leave",Icon:UserCheck,label:"สิทธิ์อนุมัติลา"},
+    {key:"leave",Icon:UserCheck,label:"อนุมัติลา"},
   ];
-
 
   return (
     <div style={{fontFamily:F,background:BG,minHeight:"100vh"}}>
-      {/* Header */}
       <div style={{padding:"12px 28px 0",borderBottom:"1px solid #eaecef",background:WHITE}}>
         <button onClick={onBack} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:12,color:TEAL,background:"transparent",border:"none",cursor:"pointer",padding:"0 0 8px",fontFamily:F}}>
           <ArrowLeft size={13} strokeWidth={2}/> {company.name}
@@ -433,49 +368,45 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
           <div style={{display:"flex",gap:8}}>
             {!editing
               ?<Btn variant="ghost" onClick={()=>{setForm({...emp,hireDate:isoToInput(emp.hireDate),birthDate:isoToInput(emp.birthDate||"")});setEditing(true);}}><Pencil size={13} strokeWidth={1.8}/> แก้ไข</Btn>
-              :<><Btn variant="ghost" onClick={()=>setEditing(false)}>ยกเลิก</Btn><Btn variant="primary" onClick={save} disabled={saving}><Check size={13} strokeWidth={2.5}/> {saving?"กำลังบันทึก...":"บันทึก"}</Btn></>
+              :<><Btn variant="ghost" onClick={()=>setEditing(false)}>ยกเลิก</Btn><Btn variant="primary" onClick={save} disabled={saving}><Check size={13} strokeWidth={2.5}/> {saving?"บันทึก...":"บันทึก"}</Btn></>
             }
             <Btn variant="danger" onClick={()=>onOffboard(emp)}><UserX size={13} strokeWidth={1.8}/> Offboard</Btn>
           </div>
         </div>
-        {/* Quick stats */}
         <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
-          {[[formatThai(emp.hireDate),"เริ่มงาน",CalendarDays],[Number(emp.baseSalary).toLocaleString()+" ฿","เงินเดือน",Wallet],[CONTRACT_LABELS[emp.contractType]||emp.contractType,"ประเภทสัญญา",Briefcase]].map(([v,l,Ic])=>(
-            <div key={String(l)} style={{background:BG,borderRadius:9,padding:"6px 12px",display:"flex",alignItems:"center",gap:7}}>
-              {<(Ic as React.ElementType) size={12} strokeWidth={1.8} color={INK3}/>}
-              <div><div style={{fontSize:11,fontWeight:500,color:INK,whiteSpace:"nowrap"}}>{String(v)}</div><div style={{fontSize:10,color:INK3}}>{String(l)}</div></div>
+          {[[formatThai(emp.hireDate),"เริ่มงาน"],[Number(emp.baseSalary).toLocaleString()+" ฿","เงินเดือน"],[CONTRACT_LABELS[emp.contractType]||emp.contractType,"สัญญา"]].map(([v,l])=>(
+            <div key={l} style={{background:BG,borderRadius:9,padding:"6px 12px"}}>
+              <div style={{fontSize:11,fontWeight:500,color:INK,whiteSpace:"nowrap"}}>{v}</div>
+              <div style={{fontSize:10,color:INK3}}>{l}</div>
             </div>
           ))}
         </div>
-        {/* Tabs */}
         <div style={{display:"flex",overflowX:"auto"}}>
-          {TABS.map(({key,Icon:Ic,label})=>(
+          {TABS.map(({key,Icon,label})=>(
             <button key={key} onClick={()=>setTab(key)}
               style={{padding:"9px 14px",fontSize:13,color:tab===key?TEAL:INK3,fontWeight:tab===key?500:400,borderBottom:tab===key?`2.5px solid ${TEAL}`:"2.5px solid transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:5,whiteSpace:"nowrap",background:"transparent",border:"none",fontFamily:F}}>
-              <Ic size={13} strokeWidth={1.8}/>{label}
+              <Icon size={13} strokeWidth={1.8}/>{label}
             </button>
           ))}
         </div>
       </div>
 
       <div style={{padding:"18px 28px"}}>
-
-        {/* ── Info tab ── */}
         {tab==="info"&&(
           <div style={{maxWidth:680}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
               {editing?<>
-                <FI label="ชื่อ (TH)" req value={form.firstName||""} onChange={e=>setForm({...form,firstName:e.target.value})}/>
-                <FI label="นามสกุล (TH)" req value={form.lastName||""} onChange={e=>setForm({...form,lastName:e.target.value})}/>
-                <FI label="First Name (EN)" value={form.firstNameEN||""} onChange={e=>setForm({...form,firstNameEN:e.target.value})}/>
-                <FI label="Last Name (EN)" value={form.lastNameEN||""} onChange={e=>setForm({...form,lastNameEN:e.target.value})}/>
-                <FI label="ชื่อเล่น" value={form.nickname||""} onChange={e=>setForm({...form,nickname:e.target.value})}/>
-                <FS label="เพศ" value={form.gender||"ชาย"} onChange={e=>setForm({...form,gender:e.target.value})} options={["ชาย","หญิง","ไม่ระบุ"]}/>
+                <FInput label="ชื่อ (TH)" req={true} value={form.firstName||""} onChange={e=>setForm({...form,firstName:e.target.value})}/>
+                <FInput label="นามสกุล (TH)" req={true} value={form.lastName||""} onChange={e=>setForm({...form,lastName:e.target.value})}/>
+                <FInput label="First Name (EN)" value={form.firstNameEN||""} onChange={e=>setForm({...form,firstNameEN:e.target.value})}/>
+                <FInput label="Last Name (EN)" value={form.lastNameEN||""} onChange={e=>setForm({...form,lastNameEN:e.target.value})}/>
+                <FInput label="ชื่อเล่น" value={form.nickname||""} onChange={e=>setForm({...form,nickname:e.target.value})}/>
+                <FSelect label="เพศ" value={form.gender||"ชาย"} onChange={e=>setForm({...form,gender:e.target.value})} options={["ชาย","หญิง","ไม่ระบุ"]}/>
                 <div><FL>วันเกิด</FL><MiniCalendar value={form.birthDate||""} onChange={v=>setForm({...form,birthDate:v})}/></div>
-                <FI label="เลขบัตรประชาชน" value={form.nationalId||""} onChange={e=>setForm({...form,nationalId:e.target.value})}/>
-                <FI label="โทรศัพท์" req value={form.phone||""} onChange={e=>setForm({...form,phone:e.target.value})}/>
-                <FI label="อีเมล" req type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})}/>
-                <div style={{gridColumn:"1/-1"}}><FI label="ที่อยู่" value={form.address||""} onChange={e=>setForm({...form,address:e.target.value})}/></div>
+                <FInput label="เลขบัตรประชาชน" value={form.nationalId||""} onChange={e=>setForm({...form,nationalId:e.target.value})}/>
+                <FInput label="โทรศัพท์" req={true} value={form.phone||""} onChange={e=>setForm({...form,phone:e.target.value})}/>
+                <FInput label="อีเมล" req={true} type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})}/>
+                <div style={{gridColumn:"1/-1"}}><FInput label="ที่อยู่" value={form.address||""} onChange={e=>setForm({...form,address:e.target.value})}/></div>
                 <div style={{gridColumn:"1/-1"}}>
                   <FL>สีโปรไฟล์</FL>
                   <div style={{display:"flex",gap:6}}>
@@ -495,27 +426,26 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
           </div>
         )}
 
-        {/* ── Contract tab ── */}
         {tab==="contract"&&(
           <div style={{maxWidth:680}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
               {editing?<>
-                <FI label="รหัสพนักงาน" req value={form.empCode||""} onChange={e=>setForm({...form,empCode:e.target.value})}/>
-                <FS label="ประเภทสัญญา" value={form.contractType||"MONTHLY"} onChange={e=>setForm({...form,contractType:e.target.value})}
+                <FInput label="รหัสพนักงาน" req={true} value={form.empCode||""} onChange={e=>setForm({...form,empCode:e.target.value})}/>
+                <FSelect label="ประเภทสัญญา" value={form.contractType||"MONTHLY"} onChange={e=>setForm({...form,contractType:e.target.value})}
                   options={Object.entries(CONTRACT_LABELS).map(([v,l])=>({value:v,label:l}))}/>
-                <div><FL req>วันเริ่มงาน</FL><MiniCalendar value={form.hireDate||""} onChange={v=>setForm({...form,hireDate:v})}/></div>
-                <FS label="สถานะ" value={form.status||"PROBATION"} onChange={e=>setForm({...form,status:e.target.value})}
+                <div><FL req={true}>วันเริ่มงาน</FL><MiniCalendar value={form.hireDate||""} onChange={v=>setForm({...form,hireDate:v})}/></div>
+                <FSelect label="สถานะ" value={form.status||"PROBATION"} onChange={e=>setForm({...form,status:e.target.value})}
                   options={Object.entries(EMP_STATUS).map(([v,{label}])=>({value:v,label}))}/>
-                <FS label="แผนก" value={String(form.departmentId||"")} onChange={e=>setForm({...form,departmentId:Number(e.target.value)||undefined})}
-                  options={[{value:"",label:"— ไม่ระบุ —"},...depts.map(d=>({value:String(d.id),label:d.name}))]}/>
-                <FS label="ตำแหน่ง" value={String(form.positionId||"")} onChange={e=>setForm({...form,positionId:Number(e.target.value)||undefined})}
-                  options={[{value:"",label:"— ไม่ระบุ —"},...positions.map(p=>({value:String(p.id),label:p.name}))]}/>
+                <FSelect label="แผนก" value={String(form.departmentId||"")} onChange={e=>setForm({...form,departmentId:Number(e.target.value)||undefined})}
+                  options={[{value:"",label:"— ไม่ระบุ —"},...depts.map((d:any)=>({value:String(d.id),label:d.name}))]}/>
+                <FSelect label="ตำแหน่ง" value={String(form.positionId||"")} onChange={e=>setForm({...form,positionId:Number(e.target.value)||undefined})}
+                  options={[{value:"",label:"— ไม่ระบุ —"},...positions.map((p:any)=>({value:String(p.id),label:p.name}))]}/>
                 <div style={{gridColumn:"1/-1"}}>
                   <FL>หัวหน้างาน</FL>
                   <select value={form.managerId||""} onChange={e=>setForm({...form,managerId:e.target.value?Number(e.target.value):undefined})}
                     style={{width:"100%",fontSize:13,padding:"9px 12px",borderRadius:8,border:"1px solid #dde2e8",fontFamily:F,background:WHITE,color:INK}}>
                     <option value="">— ไม่มีหัวหน้างาน —</option>
-                    {allEmps.filter(e=>e.id!==emp.id).map(e=><option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.empCode})</option>)}
+                    {allEmps.filter((e:any)=>e.id!==emp.id).map((e:any)=><option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.empCode})</option>)}
                   </select>
                 </div>
               </>:<>
@@ -525,7 +455,7 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
                 <div style={{gridColumn:"1/-1"}}>
                   <FL>หัวหน้างาน</FL>
                   {emp.manager?<div style={{display:"flex",alignItems:"center",gap:10,background:BG,borderRadius:8,padding:"9px 12px"}}>
-                    <Avatar emp={{...emp,...emp.manager,profileColor:"#e6faf9",profileTextColor:TEAL} as Employee} size={28}/>
+                    <div style={{width:34,height:34,borderRadius:9,background:"#e6faf9",color:TEAL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:500}}>{emp.manager.firstName[0]}{emp.manager.lastName[0]}</div>
                     <div><div style={{fontSize:13,fontWeight:500,color:INK}}>{emp.manager.firstName} {emp.manager.lastName}</div><div style={{fontSize:11,color:INK3}}>{emp.manager.empCode}</div></div>
                   </div>:<FV>ไม่มีหัวหน้างาน</FV>}
                 </div>
@@ -534,17 +464,15 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
           </div>
         )}
 
-        {/* ── Salary tab ── */}
         {tab==="salary"&&(
           <div style={{maxWidth:680}}>
             <div style={{background:WHITE,borderRadius:14,border:"1px solid #eaecef",padding:18,marginBottom:14}}>
-              <div style={{fontSize:13,fontWeight:500,color:INK,marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Wallet size={14} strokeWidth={1.8} color={INK3}/> เงินเดือน & บัญชีธนาคาร</div>
+              <div style={{fontSize:13,fontWeight:500,color:INK,marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Wallet size={14} strokeWidth={1.8} color={INK3}/> เงินเดือน และบัญชีธนาคาร</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                 {editing?<>
-                  <FI label={emp.contractType==="PARTTIME"?"ค่าแรง (฿/ชั่วโมง)":"เงินเดือนฐาน (฿/เดือน)"} req type="number"
-                    value={String(form.baseSalary||"")} onChange={e=>setForm({...form,baseSalary:parseFloat(e.target.value)||0})}/>
-                  <FS label="ธนาคาร" value={form.bank||""} onChange={e=>setForm({...form,bank:e.target.value})} options={BANK_LIST}/>
-                  <FI label="เลขบัญชี" value={form.bankAccount||""} onChange={e=>setForm({...form,bankAccount:e.target.value})}/>
+                  <FInput label="เงินเดือนฐาน (฿/เดือน)" req={true} type="number" value={String(form.baseSalary||"")} onChange={e=>setForm({...form,baseSalary:parseFloat(e.target.value)||0})}/>
+                  <FSelect label="ธนาคาร" value={form.bank||""} onChange={e=>setForm({...form,bank:e.target.value})} options={BANK_LIST}/>
+                  <FInput label="เลขบัญชี" value={form.bankAccount||""} onChange={e=>setForm({...form,bankAccount:e.target.value})}/>
                 </>:<>
                   {[["เงินเดือนฐาน",`${Number(emp.baseSalary).toLocaleString()} บาท/เดือน`],["ธนาคาร",emp.bank||"—"],["เลขบัญชี",emp.bankAccount||"—"]].map(([l,v])=>(
                     <div key={l}><FL>{l}</FL><FV>{v}</FV></div>
@@ -561,7 +489,6 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
           </div>
         )}
 
-        {/* ── Benefits tab ── */}
         {tab==="benefits"&&(
           <div style={{maxWidth:640}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -582,28 +509,21 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
             <div style={{background:"#e6faf9",border:"1px solid #9FE1CB",borderRadius:12,padding:14}}>
               <div style={{fontSize:12,fontWeight:500,color:"#007d75",marginBottom:10}}>เพิ่มสวัสดิการ</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-                <input value={newBen.name} onChange={e=>setNewBen({...newBen,name:e.target.value})} placeholder="ชื่อสวัสดิการ เช่น ค่าโทรศัพท์"
-                  style={{fontSize:13,padding:"8px 12px",borderRadius:8,border:"1px solid #9FE1CB",fontFamily:F,background:WHITE,color:INK,outline:"none"}}/>
-                <input type="number" value={newBen.amount} onChange={e=>setNewBen({...newBen,amount:e.target.value})} placeholder="จำนวนเงิน (฿/เดือน)"
-                  style={{fontSize:13,padding:"8px 12px",borderRadius:8,border:"1px solid #9FE1CB",fontFamily:F,background:WHITE,color:INK,outline:"none"}}/>
+                <input value={newBen.name} onChange={e=>setNewBen({...newBen,name:e.target.value})} placeholder="ชื่อสวัสดิการ" style={{fontSize:13,padding:"8px 12px",borderRadius:8,border:"1px solid #9FE1CB",fontFamily:F,background:WHITE,color:INK,outline:"none"}}/>
+                <input type="number" value={newBen.amount} onChange={e=>setNewBen({...newBen,amount:e.target.value})} placeholder="จำนวนเงิน (฿/เดือน)" style={{fontSize:13,padding:"8px 12px",borderRadius:8,border:"1px solid #9FE1CB",fontFamily:F,background:WHITE,color:INK,outline:"none"}}/>
               </div>
-              <Btn variant="teal" style={{fontSize:12}} onClick={()=>{
-                if(!newBen.name)return;
-                saveBenefits([...benefits,{name:newBen.name,amount:parseInt(newBen.amount)||0}]);
-                setNewBen({name:"",amount:""});
-              }}><Plus size={13} strokeWidth={2.5}/> เพิ่มสวัสดิการ</Btn>
+              <Btn variant="teal" onClick={()=>{if(!newBen.name)return;saveBenefits([...benefits,{name:newBen.name,amount:parseInt(newBen.amount)||0}]);setNewBen({name:"",amount:""});}}><Plus size={13} strokeWidth={2.5}/> เพิ่มสวัสดิการ</Btn>
             </div>
           </div>
         )}
 
-        {/* ── Leave approve tab ── */}
         {tab==="leave"&&(
           <div style={{maxWidth:620}}>
             <div style={{background:WHITE,borderRadius:14,border:"1px solid #eaecef",padding:18,marginBottom:14}}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16}}>
                 <div>
                   <div style={{fontSize:14,fontWeight:500,color:INK,marginBottom:4}}>สิทธิ์อนุมัติการลา</div>
-                  <div style={{fontSize:12,color:INK3}}>เมื่อเปิดสิทธิ์ พนักงานคนนี้จะสามารถอนุมัติคำขอลาของพนักงานภายใต้บังคับบัญชาได้</div>
+                  <div style={{fontSize:12,color:INK3}}>เมื่อเปิดสิทธิ์ พนักงานคนนี้สามารถอนุมัติคำขอลาของผู้ใต้บังคับบัญชาได้</div>
                 </div>
                 <button onClick={toggleApprove} style={{background:"transparent",border:"none",cursor:"pointer",flexShrink:0}}>
                   {emp.canApproveLeave
@@ -619,21 +539,18 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
                 </button>
               </div>
             </div>
-            {/* Subordinates */}
             <div style={{background:WHITE,borderRadius:14,border:"1px solid #eaecef",padding:18}}>
               <div style={{fontSize:14,fontWeight:500,color:INK,marginBottom:12}}>พนักงานภายใต้บังคับบัญชา ({emp.subordinates?.length||0} คน)</div>
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {(emp.subordinates||[]).map(sub=>(
-                  <div key={sub.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:BG,borderRadius:10}}>
-                    <div style={{width:34,height:34,borderRadius:9,background:"#e6faf9",color:TEAL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:500}}>{sub.firstName[0]}{sub.lastName[0]}</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:500,color:INK}}>{sub.firstName} {sub.lastName}</div>
-                      <div style={{fontSize:11,color:INK3}}>{sub.empCode}</div>
-                    </div>
+              {(emp.subordinates||[]).map(sub=>(
+                <div key={sub.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:BG,borderRadius:10,marginBottom:8}}>
+                  <div style={{width:34,height:34,borderRadius:9,background:"#e6faf9",color:TEAL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:500}}>{sub.firstName[0]}{sub.lastName[0]}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:500,color:INK}}>{sub.firstName} {sub.lastName}</div>
+                    <div style={{fontSize:11,color:INK3}}>{sub.empCode}</div>
                   </div>
-                ))}
-                {(!emp.subordinates||emp.subordinates.length===0)&&<div style={{padding:16,textAlign:"center",color:INK3,fontSize:13}}>ยังไม่มีพนักงานภายใต้บังคับบัญชา</div>}
-              </div>
+                </div>
+              ))}
+              {(!emp.subordinates||emp.subordinates.length===0)&&<div style={{padding:16,textAlign:"center",color:INK3,fontSize:13}}>ยังไม่มีพนักงานภายใต้บังคับบัญชา</div>}
             </div>
           </div>
         )}
@@ -642,13 +559,8 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
   );
 }
 
-// ════════════════════════════════════════
-//  ADD WIZARD
-// ════════════════════════════════════════
-function AddWizard({company,depts,positions,onClose,onSave}:{
-  company:Company;depts:Dept[];positions:Pos[];
-  onClose:()=>void;onSave:(e:Employee)=>void;
-}){
+// ── Add Wizard ──
+function AddWizard({company,depts,positions,onClose,onSave}:any){
   const [step,setStep]=useState(1);
   const [form,setForm]=useState({
     firstName:"",lastName:"",firstNameEN:"",lastNameEN:"",nickname:"",gender:"ชาย",
@@ -662,19 +574,18 @@ function AddWizard({company,depts,positions,onClose,onSave}:{
   const [saving,setSaving]=useState(false);
 
   function v1(){
-    const e:Record<string,string>={};
+    const e: Record<string,string>={};
     if(!form.firstName.trim()) e.firstName="กรอกชื่อ";
     if(!form.lastName.trim())  e.lastName="กรอกนามสกุล";
     if(!form.phone.trim())     e.phone="กรอกเบอร์โทร";
     if(!form.email.trim())     e.email="กรอกอีเมล";
-    else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email="รูปแบบอีเมลไม่ถูกต้อง";
     setErrors(e); return !Object.keys(e).length;
   }
   function v2(){
-    const e:Record<string,string>={};
+    const e: Record<string,string>={};
     if(!form.empCode.trim()) e.empCode="กรอกรหัสพนักงาน";
     if(!form.hireDate)       e.hireDate="เลือกวันเริ่มงาน";
-    if(!form.baseSalary||isNaN(Number(form.baseSalary))) e.baseSalary="กรอกเงินเดือน";
+    if(!form.baseSalary)     e.baseSalary="กรอกเงินเดือน";
     setErrors(e); return !Object.keys(e).length;
   }
   function next(){if(step===1&&!v1())return;if(step===2&&!v2())return;setStep(s=>s+1);}
@@ -683,25 +594,26 @@ function AddWizard({company,depts,positions,onClose,onSave}:{
     setSaving(true);
     const payload={
       companyId:company.id,
-      firstName:form.firstName,lastName:form.lastName,firstNameEN:form.firstNameEN||undefined,
-      lastNameEN:form.lastNameEN||undefined,nickname:form.nickname||undefined,
-      gender:form.gender,birthDate:form.birthDate||undefined,nationalId:form.nationalId||undefined,
+      firstName:form.firstName,lastName:form.lastName,
+      firstNameEN:form.firstNameEN||undefined,lastNameEN:form.lastNameEN||undefined,
+      nickname:form.nickname||undefined,gender:form.gender,
+      birthDate:form.birthDate||undefined,nationalId:form.nationalId||undefined,
       phone:form.phone,email:form.email,address:form.address||undefined,
-      empCode:form.empCode,departmentId:form.departmentId?Number(form.departmentId):undefined,
+      empCode:form.empCode,
+      departmentId:form.departmentId?Number(form.departmentId):undefined,
       positionId:form.positionId?Number(form.positionId):undefined,
       contractType:form.contractType,hireDate:form.hireDate,status:form.status,
       baseSalary:Number(form.baseSalary),bank:form.bank,bankAccount:form.bankAccount||undefined,
-      profileColor:form.profileColor,profileTextColor:form.profileTextColor,
-      canApproveLeave:false,
+      profileColor:form.profileColor,profileTextColor:form.profileTextColor,canApproveLeave:false,
     };
-    const r=await apiFetch("/api/employees",{method:"POST",body:JSON.stringify(payload)});
-    if(r.data) onSave(r.data);
+    const r:any=await apiFetch("/api/employees",{method:"POST",body:JSON.stringify(payload)});
+    if(r.data) onSave(r.data as Employee);
     setSaving(false);
   }
 
   const pre=(form.firstName[0]||"?")+(form.lastName[0]||"?");
-  const selDept=depts.find(d=>String(d.id)===form.departmentId);
-  const selPos=positions.find(p=>String(p.id)===form.positionId);
+  const selDept=depts.find((d:any)=>String(d.id)===form.departmentId);
+  const selPos=positions.find((p:any)=>String(p.id)===form.positionId);
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(28,40,51,.46)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,fontFamily:F}}>
@@ -711,23 +623,20 @@ function AddWizard({company,depts,positions,onClose,onSave}:{
             <div style={{fontSize:15,fontWeight:500,color:INK}}>เพิ่มพนักงานใหม่ — {company.name}</div>
             <button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",color:INK3,display:"flex"}}><X size={18} strokeWidth={1.8}/></button>
           </div>
-          {/* Step indicator */}
           <div style={{display:"flex",alignItems:"center"}}>
-            {[["1","ข้อมูลส่วนตัว"],["2","สัญญา & เงินเดือน"],["3","ยืนยัน"]].map(([n,lbl],i)=>{
+            {[["1","ข้อมูลส่วนตัว"],["2","สัญญา และเงินเดือน"],["3","ยืนยัน"]].map(([n,lbl],i)=>{
               const done=step>i+1,active=step===i+1;
               return <div key={n} style={{display:"flex",alignItems:"center",flex:i<2?1:"none"}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <div style={{width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:500,background:done||active?TEAL:"#eaecef",color:done||active?WHITE:INK3,flexShrink:0}}>{done?<Check size={11} strokeWidth={2.5}/>:n}</div>
                   <span style={{fontSize:12,fontWeight:active?500:400,color:active?INK:done?TEAL:INK3,whiteSpace:"nowrap"}}>{lbl}</span>
                 </div>
-                {i<2&&<div style={{flex:1,height:1,background:done?"#9FE1CB":"#eaecef",margin:"0 10px"}}/>}
-              </div>;
+                {i<=1 ? <div style={{flex:1,height:1,background:done?"#9FE1CB":"#eaecef",margin:"0 10px"}}/>:null}
+              </div>
             })}
           </div>
         </div>
-
         <div style={{padding:"18px 22px",overflow:"auto",maxHeight:380}}>
-          {/* Step 1 */}
           {step===1&&(
             <div>
               <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:form.profileColor,borderRadius:12,marginBottom:16}}>
@@ -744,41 +653,37 @@ function AddWizard({company,depts,positions,onClose,onSave}:{
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                <FI label="ชื่อ (TH)" req value={form.firstName} onChange={e=>{setForm({...form,firstName:e.target.value});setErrors({...errors,firstName:""}); }} error={errors.firstName}/>
-                <FI label="นามสกุล (TH)" req value={form.lastName} onChange={e=>{setForm({...form,lastName:e.target.value});setErrors({...errors,lastName:""});}} error={errors.lastName}/>
-                <FI label="First Name (EN)" value={form.firstNameEN} onChange={e=>setForm({...form,firstNameEN:e.target.value})}/>
-                <FI label="Last Name (EN)" value={form.lastNameEN} onChange={e=>setForm({...form,lastNameEN:e.target.value})}/>
-                <FI label="ชื่อเล่น" value={form.nickname} onChange={e=>setForm({...form,nickname:e.target.value})}/>
-                <FS label="เพศ" value={form.gender} onChange={e=>setForm({...form,gender:e.target.value})} options={["ชาย","หญิง","ไม่ระบุ"]}/>
+                <FInput label="ชื่อ (TH)" req={true} value={form.firstName} onChange={e=>{setForm({...form,firstName:e.target.value});setErrors({...errors,firstName:""}); }} error={errors.firstName}/>
+                <FInput label="นามสกุล (TH)" req={true} value={form.lastName} onChange={e=>{setForm({...form,lastName:e.target.value});setErrors({...errors,lastName:""});}} error={errors.lastName}/>
+                <FInput label="First Name (EN)" value={form.firstNameEN} onChange={e=>setForm({...form,firstNameEN:e.target.value})}/>
+                <FInput label="Last Name (EN)" value={form.lastNameEN} onChange={e=>setForm({...form,lastNameEN:e.target.value})}/>
+                <FInput label="ชื่อเล่น" value={form.nickname} onChange={e=>setForm({...form,nickname:e.target.value})}/>
+                <FSelect label="เพศ" value={form.gender} onChange={e=>setForm({...form,gender:e.target.value})} options={["ชาย","หญิง","ไม่ระบุ"]}/>
                 <div><FL>วันเกิด</FL><MiniCalendar value={form.birthDate} onChange={v=>setForm({...form,birthDate:v})}/></div>
-                <FI label="เลขบัตรประชาชน" value={form.nationalId} onChange={e=>setForm({...form,nationalId:e.target.value})} placeholder="1-XXXX-XXXXX-XX-X"/>
-                <FI label="โทรศัพท์" req value={form.phone} onChange={e=>{setForm({...form,phone:e.target.value});setErrors({...errors,phone:""}); }} error={errors.phone} placeholder="08X-XXX-XXXX"/>
-                <FI label="อีเมล" req type="email" value={form.email} onChange={e=>{setForm({...form,email:e.target.value});setErrors({...errors,email:""});}} error={errors.email} placeholder="name@company.co.th"/>
-                <div style={{gridColumn:"1/-1"}}><FI label="ที่อยู่" value={form.address} onChange={e=>setForm({...form,address:e.target.value})} placeholder="บ้านเลขที่ ถนน แขวง เขต จังหวัด"/></div>
+                <FInput label="เลขบัตรประชาชน" value={form.nationalId} onChange={e=>setForm({...form,nationalId:e.target.value})} placeholder="1-XXXX-XXXXX-XX-X"/>
+                <FInput label="โทรศัพท์" req={true} value={form.phone} onChange={e=>{setForm({...form,phone:e.target.value});setErrors({...errors,phone:""}); }} error={errors.phone} placeholder="08X-XXX-XXXX"/>
+                <FInput label="อีเมล" req={true} type="email" value={form.email} onChange={e=>{setForm({...form,email:e.target.value});setErrors({...errors,email:""});}} error={errors.email} placeholder="name@company.co.th"/>
+                <div style={{gridColumn:"1/-1"}}><FInput label="ที่อยู่" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/></div>
               </div>
             </div>
           )}
-
-          {/* Step 2 */}
           {step===2&&(
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <FI label="รหัสพนักงาน" req value={form.empCode} onChange={e=>{setForm({...form,empCode:e.target.value});setErrors({...errors,empCode:""}); }} error={errors.empCode} placeholder={company.code+"-XXX"}/>
-              <div><FL req>วันเริ่มงาน</FL><MiniCalendar value={form.hireDate} onChange={v=>{setForm({...form,hireDate:v});setErrors({...errors,hireDate:""}); }} error={errors.hireDate}/></div>
-              <FS label="แผนก" value={form.departmentId} onChange={e=>setForm({...form,departmentId:e.target.value})}
-                options={[{value:"",label:"— ไม่ระบุ —"},...depts.map(d=>({value:String(d.id),label:d.name}))]}/>
-              <FS label="ตำแหน่ง" value={form.positionId} onChange={e=>setForm({...form,positionId:e.target.value})}
-                options={[{value:"",label:"— ไม่ระบุ —"},...positions.map(p=>({value:String(p.id),label:p.name}))]}/>
-              <FS label="ประเภทสัญญา" value={form.contractType} onChange={e=>setForm({...form,contractType:e.target.value})}
+              <FInput label="รหัสพนักงาน" req={true} value={form.empCode} onChange={e=>{setForm({...form,empCode:e.target.value});setErrors({...errors,empCode:""});}} error={errors.empCode} placeholder={company.code+"-XXX"}/>
+              <div><FL req={true}>วันเริ่มงาน</FL><MiniCalendar value={form.hireDate} onChange={v=>{setForm({...form,hireDate:v});setErrors({...errors,hireDate:""}); }} error={errors.hireDate}/></div>
+              <FSelect label="แผนก" value={form.departmentId} onChange={e=>setForm({...form,departmentId:e.target.value})}
+                options={[{value:"",label:"— ไม่ระบุ —"},...depts.map((d:any)=>({value:String(d.id),label:d.name}))]}/>
+              <FSelect label="ตำแหน่ง" value={form.positionId} onChange={e=>setForm({...form,positionId:e.target.value})}
+                options={[{value:"",label:"— ไม่ระบุ —"},...positions.map((p:any)=>({value:String(p.id),label:p.name}))]}/>
+              <FSelect label="ประเภทสัญญา" value={form.contractType} onChange={e=>setForm({...form,contractType:e.target.value})}
                 options={Object.entries(CONTRACT_LABELS).map(([v,l])=>({value:v,label:l}))}/>
-              <FS label="สถานะเริ่มต้น" value={form.status} onChange={e=>setForm({...form,status:e.target.value})}
+              <FSelect label="สถานะเริ่มต้น" value={form.status} onChange={e=>setForm({...form,status:e.target.value})}
                 options={[{value:"PROBATION",label:"ทดลองงาน"},{value:"ACTIVE",label:"ทำงานอยู่"}]}/>
-              <FI label="เงินเดือนฐาน (฿/เดือน)" req type="number" value={form.baseSalary} onChange={e=>{setForm({...form,baseSalary:e.target.value});setErrors({...errors,baseSalary:""}); }} error={errors.baseSalary} placeholder="0"/>
-              <FS label="ธนาคาร" value={form.bank} onChange={e=>setForm({...form,bank:e.target.value})} options={BANK_LIST}/>
-              <div style={{gridColumn:"1/-1"}}><FI label="เลขบัญชี" value={form.bankAccount} onChange={e=>setForm({...form,bankAccount:e.target.value})} placeholder="XXX-X-XXXXX-X"/></div>
+              <FInput label="เงินเดือนฐาน (฿/เดือน)" req={true} type="number" value={form.baseSalary} onChange={e=>{setForm({...form,baseSalary:e.target.value});setErrors({...errors,baseSalary:""}); }} error={errors.baseSalary} placeholder="0"/>
+              <FSelect label="ธนาคาร" value={form.bank} onChange={e=>setForm({...form,bank:e.target.value})} options={BANK_LIST}/>
+              <div style={{gridColumn:"1/-1"}}><FInput label="เลขบัญชี" value={form.bankAccount} onChange={e=>setForm({...form,bankAccount:e.target.value})} placeholder="XXX-X-XXXXX-X"/></div>
             </div>
           )}
-
-          {/* Step 3 Confirm */}
           {step===3&&(
             <div>
               <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",background:form.profileColor,borderRadius:14,marginBottom:16}}>
@@ -800,7 +705,6 @@ function AddWizard({company,depts,positions,onClose,onSave}:{
                   ["เงินเดือน",`${parseInt(form.baseSalary).toLocaleString()} ฿/เดือน`],
                   ["โทรศัพท์",form.phone],
                   ["อีเมล",form.email],
-                  ["ธนาคาร",form.bank+(form.bankAccount?` · ${form.bankAccount}`:"")],
                 ].map(([l,v],i,a)=>(
                   <div key={l} style={{display:"flex",gap:12,padding:"9px 14px",borderBottom:i<a.length-1?"1px solid #f0f2f5":"none"}}>
                     <div style={{fontSize:12,color:INK3,minWidth:120}}>{l}</div>
@@ -811,15 +715,14 @@ function AddWizard({company,depts,positions,onClose,onSave}:{
             </div>
           )}
         </div>
-
         <div style={{padding:"12px 22px",borderTop:"1px solid #eaecef",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{fontSize:12,color:INK3}}>ขั้นตอนที่ {step} จาก 3</div>
           <div style={{display:"flex",gap:8}}>
-            {step>1&&<Btn variant="ghost" onClick={()=>setStep(s=>s-1)}><ChevronLeft size={13} strokeWidth={2}/> ย้อนกลับ</Btn>}
+            {(step>1)&&<Btn variant="ghost" onClick={()=>setStep(s=>s-1)}><ChevronLeft size={13} strokeWidth={2}/> ย้อนกลับ</Btn>}
             <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
-            {step<3
+            {(step<3)
               ?<Btn variant="teal" onClick={next}>ถัดไป <ChevronRight size={13} strokeWidth={2}/></Btn>
-              :<Btn variant="primary" onClick={save} disabled={saving}><UserPlus size={13} strokeWidth={2}/> {saving?"กำลังบันทึก...":"เพิ่มพนักงาน"}</Btn>
+              :<Btn variant="primary" onClick={save} disabled={saving}><UserPlus size={13} strokeWidth={2}/> {saving?"บันทึก...":"เพิ่มพนักงาน"}</Btn>
             }
           </div>
         </div>
@@ -828,10 +731,8 @@ function AddWizard({company,depts,positions,onClose,onSave}:{
   );
 }
 
-// ════════════════════════════════════════
-//  OFFBOARD MODAL
-// ════════════════════════════════════════
-function OffboardModal({emp,onClose,onConfirm}:{emp:Employee;onClose:()=>void;onConfirm:(reason:string,type:string)=>void}){
+// ── Offboard Modal ──
+function OffboardModal({emp,onClose,onConfirm}:any){
   const [type,setType]=useState("resign");
   const [reason,setReason]=useState("");
   const [lastDay,setLastDay]=useState("");
@@ -839,15 +740,15 @@ function OffboardModal({emp,onClose,onConfirm}:{emp:Employee;onClose:()=>void;on
   return (
     <Modal title="Offboard พนักงาน" sub={`${fname(emp)} · ${emp.empCode}`} onClose={onClose} width={480}>
       <div style={{display:"flex",gap:8,marginBottom:16}}>
-        {[["resign","ลาออก",UserMinus],["terminate","พ้นสภาพ",UserX]].map(([v,lbl,Ic])=>(
+        {([{v:"resign",lbl:"ลาออก",Ic:UserMinus},{v:"terminate",lbl:"พ้นสภาพ",Ic:UserX}] as {v:string;lbl:string;Ic:React.ElementType}[]).map(({v,lbl,Ic})=>(
           <button key={v} onClick={()=>setType(v)}
             style={{flex:1,padding:"10px 14px",borderRadius:10,border:`2px solid ${type===v?CORAL:"#dde2e8"}`,background:type===v?"#fff0f0":WHITE,cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:type===v?500:400,color:type===v?"#cc4444":INK2,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            {<(Ic as React.ElementType) size={14} strokeWidth={1.8}/>}{lbl}
+            <Ic size={14} strokeWidth={1.8}/>{lbl}
           </button>
         ))}
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:14}}>
-        <FI label="วันสุดท้ายที่ทำงาน" req value={lastDay} onChange={e=>setLastDay(e.target.value)} placeholder="เช่น 31/12/2568"/>
+        <FInput label="วันสุดท้ายที่ทำงาน" req={true} value={lastDay} onChange={e=>setLastDay(e.target.value)} placeholder="เช่น 31/12/2568"/>
         <div>
           <FL>เหตุผล</FL>
           <textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder={type==="resign"?"เหตุผลการลาออก...":"เหตุผลการพ้นสภาพ..."} rows={3}
@@ -873,9 +774,7 @@ function OffboardModal({emp,onClose,onConfirm}:{emp:Employee;onClose:()=>void;on
   );
 }
 
-// ════════════════════════════════════════
-//  ROOT PAGE
-// ════════════════════════════════════════
+// ── Root Page ──
 export default function EmployeesPage(){
   const {user}=useAuth();
   const canEdit=user?.role==="ADMIN"||user?.role==="HR";
@@ -891,46 +790,47 @@ export default function EmployeesPage(){
   const [loadingEmps,setLoadingEmps]=useState(false);
 
   useEffect(()=>{
-    apiFetch("/api/companies").then(r=>{
-      if(r.data){setCompanies(r.data);}
+    apiFetch("/api/companies").then((r:any)=>{
+      if(r.data)setCompanies(r.data as Company[]);
     }).finally(()=>setLoadingCos(false));
   },[]);
 
+  useEffect(()=>{
+    if(!company)return;
     setLoadingEmps(true);
     Promise.all([
       apiFetch(`/api/employees?companyId=${company.id}`),
       apiFetch(`/api/companies/${company.id}/departments`),
       apiFetch(`/api/companies/${company.id}/positions`),
-    ]).then(([er,dr,pr])=>{
-      if(er.data)setEmps(er.data);
-      if(dr.data)setDepts(dr.data);
-      if(pr.data)setPositions(pr.data);
+    ]).then(([er,dr,pr]:[any,any,any])=>{
+      if(er.data)setEmps(er.data as Employee[]);
+      if(dr.data)setDepts(dr.data as Dept[]);
+      if(pr.data)setPositions(pr.data as Pos[]);
     }).finally(()=>setLoadingEmps(false));
   },[company?.id]);
 
   async function confirmOffboard(reason:string,type:string){
     if(!offTarget)return;
     const ns=type==="resign"?"RESIGNED":"TERMINATED";
-    const r=await apiFetch(`/api/employees/${offTarget.id}`,{method:"PATCH",body:JSON.stringify({status:ns})});
+    const r:any=await apiFetch(`/api/employees/${offTarget.id}`,{method:"PATCH",body:JSON.stringify({status:ns})});
     if(r.data){
       const updated={...offTarget,...r.data};
       setEmps(prev=>prev.map(e=>e.id===updated.id?updated:e));
-      if(selectedEmp?.id===updated.id) setSelectedEmp(updated);
+      if(selectedEmp?.id===updated.id) setSelectedEmp(updated as Employee);
     }
     setOffTarget(null);
   }
 
   if(loadingCos) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:INK3,fontFamily:F,fontSize:13}}>กำลังโหลด...</div>;
-
-  if(!company) return <CompanyPicker companies={companies} onSelect={c=>{setCompany(c);setSelectedEmp(null);}}/>;
+  if(!company) return <CompanyPicker companies={companies} onSelect={(c:any)=>{setCompany(c);setSelectedEmp(null);}}/>;
 
   if(selectedEmp) return (
     <>
       <EmpProfile
         emp={selectedEmp} company={company} allEmps={emps} depts={depts} positions={positions}
         onBack={()=>setSelectedEmp(null)}
-        onUpdate={updated=>{setSelectedEmp(updated);setEmps(prev=>prev.map(e=>e.id===updated.id?updated:e));}}
-        onOffboard={e=>setOffTarget(e)}
+        onUpdate={(updated:any)=>{setSelectedEmp(updated);setEmps((prev:any)=>prev.map((e:any)=>e.id===updated.id?updated:e));}}
+        onOffboard={(e:any)=>setOffTarget(e)}
       />
       {offTarget&&<OffboardModal emp={offTarget} onClose={()=>setOffTarget(null)} onConfirm={confirmOffboard}/>}
     </>
@@ -941,9 +841,9 @@ export default function EmployeesPage(){
       <EmpList
         company={company} companies={companies} emps={emps} depts={depts}
         loading={loadingEmps}
-        onChangeCompany={c=>{setCompany(c);setSelectedEmp(null);setEmps([]);}}
-        onViewEmp={e=>setSelectedEmp(e)}
-        onAddEmp={e=>setEmps(prev=>[...prev,e])}
+        onChangeCompany={(c:any)=>{setCompany(c);setSelectedEmp(null);setEmps([]);}}
+        onViewEmp={(e:any)=>setSelectedEmp(e)}
+        onAddEmp={(e:any)=>setEmps(prev=>[...prev,e])}
       />
       {offTarget&&<OffboardModal emp={offTarget} onClose={()=>setOffTarget(null)} onConfirm={confirmOffboard}/>}
     </>
