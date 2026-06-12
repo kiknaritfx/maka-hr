@@ -42,6 +42,7 @@ model Company {
   phone        String?
   email        String?
   website      String?
+  logoUrl      String?
   color        String        @default("#e6faf9")
   textColor    String        @default("#007d75")
   payrollCycle String        @default("สิ้นเดือน")
