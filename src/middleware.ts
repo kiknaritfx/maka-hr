@@ -23,7 +23,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  return NextResponse.next();
+  // ส่ง session ผ่าน header เพื่อให้ withAuth() ไม่ต้อง verify ซ้ำ
+  const res = NextResponse.next();
+  res.headers.set("x-session", JSON.stringify(session));
+  return res;
 }
 
 export const config = {
