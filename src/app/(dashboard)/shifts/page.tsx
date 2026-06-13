@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ArrowLeft,
-  Clock, ChevronLeft, ChevronRight, Sun, Moon, Sunrise,
+  Clock, ChevronLeft, ChevronRight, ChevronDown, Sun, Moon, Sunrise,
   UserCheck, Search, Calendar, LayoutList, Coffee, Umbrella, Download
 } from "lucide-react";
 import { apiFetch } from "@/hooks/useApi";
@@ -497,7 +497,7 @@ function ShiftAssignModal({shift,allShifts,emps,onClose,onSave}:{shift:Shift;all
   }
 
   return(
-    <Modal title={`จัดการพนักงาน — ${shift.name}`} sub={`${shift.startTime}–${shift.endTime} · ${shift.workDays.length} วัน/สัปดาห์`} onClose={onClose} width={540}>
+    <Modal title={`กะเริ่มต้น — ${shift.name}`} sub={`กำหนดพนักงานที่ใช้กะนี้เป็นค่าเริ่มต้น · ${shift.startTime}–${shift.endTime}`} onClose={onClose} width={540}>
       <div style={{marginBottom:18}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
           <div style={{fontSize:13,fontWeight:500,color:INK}}>พนักงานในกะนี้</div>
@@ -543,13 +543,160 @@ function ShiftAssignModal({shift,allShifts,emps,onClose,onSave}:{shift:Shift;all
   );
 }
 
+
+// ════════════════════════════════════════════════════════
+//  DEFAULT SHIFT TABLE
+// ════════════════════════════════════════════════════════
+function DefaultShiftTable({shifts,emps,onEmpShiftChange}:{shifts:Shift[];emps:Employee[];onEmpShiftChange:(empId:number,shiftId:number|null)=>void}){
+  const [savingId,setSavingId]=useState<number|null>(null);
+  const [search,setSearch]=useState("");
+
+  const filtered=emps.filter(e=>
+    `${e.firstName} ${e.lastName}`.toLowerCase().includes(search.toLowerCase())||
+    e.empCode.toLowerCase().includes(search.toLowerCase())||
+    (e.department?.name||"").toLowerCase().includes(search.toLowerCase())
+  );
+
+  async function handleChange(empId:number,shiftId:number|null){
+    setSavingId(empId);
+    await apiFetch(`/api/employees/${empId}`,{method:"PATCH",body:JSON.stringify({shiftId})});
+    onEmpShiftChange(empId,shiftId);
+    setSavingId(null);
+  }
+
+  return(
+    <div style={{background:WHITE,borderRadius:14,border:"1px solid #eaecef",overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{padding:"14px 18px",borderBottom:"1px solid #eaecef",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+        <div>
+          <div style={{fontSize:14,fontWeight:500,color:INK}}>กะเริ่มต้นพนักงาน</div>
+          <div style={{fontSize:12,color:INK3,marginTop:2}}>กำหนดกะประจำที่พนักงานแต่ละคนใช้เป็นค่าเริ่มต้น สามารถเปลี่ยนรายวันได้ที่ตารางมอบหมายกะ</div>
+        </div>
+        {/* Search */}
+        <div style={{display:"flex",alignItems:"center",gap:8,background:BG,border:"1px solid #dde2e8",borderRadius:9,padding:"0 12px",height:34,minWidth:220}}>
+          <Search size={13} strokeWidth={1.8} color={INK3}/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ค้นหาพนักงาน..." style={{border:"none",background:"transparent",outline:"none",fontSize:12,color:INK,fontFamily:F,flex:1}}/>
+          {search&&<button onClick={()=>setSearch("")} style={{background:"transparent",border:"none",cursor:"pointer",color:INK3,display:"flex"}}><X size={11} strokeWidth={2}/></button>}
+        </div>
+      </div>
+
+      {/* Shift color legend */}
+      <div style={{padding:"8px 18px",borderBottom:"1px solid #f0f2f5",display:"flex",gap:12,flexWrap:"wrap",background:"#fafbfc"}}>
+        {shifts.map(sh=>(
+          <div key={sh.id} style={{display:"flex",alignItems:"center",gap:5,fontSize:11}}>
+            <span style={{width:14,height:14,borderRadius:4,background:sh.color,border:`1px solid ${sh.textColor}44`,display:"inline-block",flexShrink:0}}/>
+            <span style={{fontWeight:500,color:sh.textColor}}>{sh.code}</span>
+            <span style={{color:INK3}}>{sh.name} · {sh.startTime}–{sh.endTime}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Summary badges */}
+      <div style={{padding:"10px 18px",borderBottom:"1px solid #f0f2f5",display:"flex",gap:10,flexWrap:"wrap"}}>
+        {shifts.map(sh=>{
+          const cnt=emps.filter(e=>e.shiftId===sh.id).length;
+          return(
+            <div key={sh.id} style={{display:"flex",alignItems:"center",gap:6,background:sh.color,borderRadius:8,padding:"5px 10px",border:`1px solid ${sh.textColor}33`}}>
+              <span style={{fontSize:16,fontWeight:600,color:sh.textColor,lineHeight:1}}>{cnt}</span>
+              <div>
+                <div style={{fontSize:11,fontWeight:500,color:sh.textColor}}>{sh.code}</div>
+                <div style={{fontSize:9,color:sh.textColor,opacity:.7}}>{sh.name}</div>
+              </div>
+            </div>
+          );
+        })}
+        <div style={{display:"flex",alignItems:"center",gap:6,background:BG,borderRadius:8,padding:"5px 10px",border:"1px solid #eaecef"}}>
+          <span style={{fontSize:16,fontWeight:600,color:INK3,lineHeight:1}}>{emps.filter(e=>!e.shiftId).length}</span>
+          <div>
+            <div style={{fontSize:11,fontWeight:500,color:INK3}}>ไม่มีกะ</div>
+            <div style={{fontSize:9,color:INK3}}>พนักงาน</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+        <thead>
+          <tr style={{background:BG}}>
+            {[["พนักงาน","35%"],["แผนก / ตำแหน่ง","25%"],["กะเริ่มต้น","40%"]].map(([h,w])=>(
+              <th key={h} style={{padding:"9px 16px",textAlign:"left",fontSize:11,color:INK3,fontWeight:500,width:w}}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map((emp,ei)=>{
+            const curShift=shifts.find(s=>s.id===emp.shiftId);
+            const isSaving=savingId===emp.id;
+            return(
+              <tr key={emp.id} style={{borderTop:"1px solid #f0f2f5",background:ei%2===0?WHITE:"#fafbfc"}}>
+                {/* Employee */}
+                <td style={{padding:"12px 16px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <Avatar emp={emp} size={32}/>
+                    <div>
+                      <div style={{fontWeight:500,color:INK,fontSize:13}}>{emp.firstName} {emp.lastName}</div>
+                      <div style={{fontSize:11,color:INK3}}>{emp.empCode}</div>
+                    </div>
+                  </div>
+                </td>
+                {/* Dept / Position */}
+                <td style={{padding:"12px 16px"}}>
+                  <div style={{fontSize:12,color:INK2}}>{emp.department?.name||"—"}</div>
+                  <div style={{fontSize:11,color:INK3}}>{emp.position?.name||""}</div>
+                </td>
+                {/* Default shift selector */}
+                <td style={{padding:"12px 16px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    {/* Current badge */}
+                    <div style={{flex:1,display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:curShift?curShift.color:BG,border:`1px solid ${curShift?curShift.textColor+"44":"#eaecef"}`}}>
+                      {curShift?(
+                        <>
+                          <TimeIcon start={curShift.startTime}/>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12,fontWeight:600,color:curShift.textColor}}>{curShift.code} — {curShift.name}</div>
+                            <div style={{fontSize:10,color:curShift.textColor,opacity:.8}}>{curShift.startTime}–{curShift.endTime} · {curShift.hoursPerDay} ชม./วัน · {curShift.workDays.length} วัน/สัปดาห์</div>
+                          </div>
+                        </>
+                      ):(
+                        <span style={{fontSize:12,color:INK3}}>— ยังไม่ได้กำหนดกะ</span>
+                      )}
+                    </div>
+                    {/* Change dropdown */}
+                    <div style={{position:"relative"}}>
+                      <select
+                        value={emp.shiftId??0}
+                        onChange={e=>handleChange(emp.id,Number(e.target.value)||null)}
+                        disabled={isSaving}
+                        style={{fontSize:12,padding:"7px 10px",borderRadius:9,border:`1px solid ${TEAL}55`,fontFamily:F,background:WHITE,color:TEAL,fontWeight:500,cursor:"pointer",appearance:"none",paddingRight:28,opacity:isSaving?.5:1}}>
+                        <option value={0}>— เปลี่ยนกะ —</option>
+                        {shifts.map(s=>(
+                          <option key={s.id} value={s.id}>{s.code} — {s.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={12} strokeWidth={2} color={TEAL} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}/>
+                    </div>
+                    {isSaving&&<div style={{fontSize:11,color:TEAL}}>บันทึก...</div>}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+          {filtered.length===0&&(
+            <tr><td colSpan={3} style={{padding:32,textAlign:"center",color:INK3,fontSize:13}}>ไม่พบพนักงาน</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════
 //  SHIFT LIST (per company)
 // ════════════════════════════════════════════════════════
 function ShiftList({company,shifts,emps,loading,onBack,onAdd,onEdit,onDelete,onEmpShiftChange}:any){
   const [assignTarget,setAssignTarget]=useState<Shift|null>(null);
   const [deleteConfirm,setDeleteConfirm]=useState<number|null>(null);
-  const [activeTab,setActiveTab]=useState<"shifts"|"schedule">("shifts");
+  const [activeTab,setActiveTab]=useState<"shifts"|"default"|"schedule">("shifts");
 
   async function confirmDelete(id:number){
     await apiFetch(`/api/shifts/${id}`,{method:"DELETE"});
@@ -580,7 +727,7 @@ function ShiftList({company,shifts,emps,loading,onBack,onAdd,onEdit,onDelete,onE
 
       {/* Tabs */}
       <div style={{display:"flex",gap:0,borderBottom:"2px solid #eaecef",marginBottom:20,background:WHITE,borderRadius:"0 0 0 0",paddingLeft:22}}>
-        {([["shifts","กะการทำงาน",LayoutList],["schedule","ตารางมอบหมายกะ",Calendar]] as [string,string,React.ElementType][]).map(([key,label,Icon])=>(
+        {([["shifts","กะการทำงาน",LayoutList],["default","กะเริ่มต้นพนักงาน",UserCheck],["schedule","ตารางมอบหมายกะ",Calendar]] as [string,string,React.ElementType][]).map(([key,label,Icon])=>(
           <button key={key} onClick={()=>setActiveTab(key as any)} style={{display:"flex",alignItems:"center",gap:6,padding:"12px 16px",border:"none",borderBottom:activeTab===key?`2px solid ${TEAL}`:"2px solid transparent",marginBottom:-2,background:"transparent",cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:activeTab===key?500:400,color:activeTab===key?TEAL:INK2}}>
             <Icon size={14} strokeWidth={1.8}/>{label}
           </button>
@@ -640,6 +787,11 @@ function ShiftList({company,shifts,emps,loading,onBack,onAdd,onEdit,onDelete,onE
                 </div>
               )}
             </div>
+          )}
+
+          {/* ── Tab: Default Shift ── */}
+          {activeTab==="default"&&(
+            <DefaultShiftTable shifts={shifts} emps={emps} onEmpShiftChange={onEmpShiftChange}/>
           )}
 
           {/* ── Tab: Schedule Calendar ── */}
