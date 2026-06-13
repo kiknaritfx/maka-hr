@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, canAccessCompany } from "@/lib/middleware";
 import { ok, err, forbidden } from "@/lib/response";
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
     const { benefits, ...raw } = data;
 
     // whitelist เฉพาะ fields ที่มีใน schema ป้องกัน unknown field error
+    try {
     const employee = await prisma.employee.create({
       data: {
         companyId:        Number(raw.companyId),
@@ -93,5 +94,15 @@ export async function POST(req: NextRequest) {
       },
     });
     return ok(employee, 201);
+    } catch (e: any) {
+      console.error("[POST /api/employees]", e?.message || e);
+      // Prisma unique constraint error
+      if (e?.code === "P2002") {
+        const field = e?.meta?.target?.[0] || "ข้อมูล";
+        const fieldLabel: Record<string,string> = { email:"อีเมล", empCode:"รหัสพนักงาน", nationalId:"เลขบัตรประชาชน" };
+        return NextResponse.json({ success: false, message: `${fieldLabel[field]||field} นี้มีในระบบแล้ว` }, { status: 400 });
+      }
+      return NextResponse.json({ success: false, message: e?.message || "เกิดข้อผิดพลาดในระบบ" }, { status: 500 });
+    }
   });
 }

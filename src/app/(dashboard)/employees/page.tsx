@@ -787,7 +787,7 @@ function AddWizard({company,depts,positions,shifts,onClose,onSave}:any){
     };
     const r:any=await apiFetch("/api/employees",{method:"POST",body:JSON.stringify(payload)});
     if(r.data){ onSave(r.data as Employee); }
-    else { setSaveError(r.error||"เกิดข้อผิดพลาด กรุณาลองใหม่"); }
+    else { setSaveError(r.error||"เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"); setSaving(false); return; }
     setSaving(false);
   }
 
