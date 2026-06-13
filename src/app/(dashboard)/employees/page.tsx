@@ -736,6 +736,7 @@ function EmpProfile({emp:initEmp,company,allEmps,allShifts,depts,positions,onBac
 
 // ── Add Wizard ──
 function AddWizard({company,depts,positions,shifts,onClose,onSave}:any){
+  const [saveError,setSaveError]=useState<string|null>(null);
   const [step,setStep]=useState(1);
   const [form,setForm]=useState({
     firstName:"",lastName:"",firstNameEN:"",lastNameEN:"",nickname:"",gender:"ชาย",
@@ -768,6 +769,7 @@ function AddWizard({company,depts,positions,shifts,onClose,onSave}:any){
 
   async function save(){
     setSaving(true);
+    setSaveError(null);
     const payload={
       companyId:company.id,
       firstName:form.firstName,lastName:form.lastName,
@@ -784,7 +786,8 @@ function AddWizard({company,depts,positions,shifts,onClose,onSave}:any){
       shiftId:form.shiftId?Number(form.shiftId):undefined,
     };
     const r:any=await apiFetch("/api/employees",{method:"POST",body:JSON.stringify(payload)});
-    if(r.data) onSave(r.data as Employee);
+    if(r.data){ onSave(r.data as Employee); }
+    else { setSaveError(r.error||"เกิดข้อผิดพลาด กรุณาลองใหม่"); }
     setSaving(false);
   }
 
@@ -916,7 +919,10 @@ function AddWizard({company,depts,positions,shifts,onClose,onSave}:any){
             <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
             {(step<3)
               ?<Btn variant="teal" onClick={next}>ถัดไป <ChevronRight size={13} strokeWidth={2}/></Btn>
-              :<Btn variant="primary" onClick={save} disabled={saving}><UserPlus size={13} strokeWidth={2}/> {saving?"บันทึก...":"เพิ่มพนักงาน"}</Btn>
+              :<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+                  {saveError&&<div style={{fontSize:12,color:"#cc4444",background:"#fff0f0",border:"1px solid #f5c4b3",borderRadius:8,padding:"6px 12px"}}>{saveError}</div>}
+                  <Btn variant="primary" onClick={save} disabled={saving}><UserPlus size={13} strokeWidth={2}/> {saving?"บันทึก...":"เพิ่มพนักงาน"}</Btn>
+                </div>
             }
           </div>
         </div>

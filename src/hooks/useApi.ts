@@ -20,6 +20,7 @@ export async function apiFetch<T = unknown>(
       if (qs) url += "?" + qs;
     }
     const res = await fetch(url, {
+      credentials: "include",  // ส่ง cookie ไปด้วยทุก request
       headers: { "Content-Type": "application/json", ...init.headers },
       ...init,
     });
