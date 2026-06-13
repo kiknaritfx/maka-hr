@@ -11,11 +11,11 @@ export async function GET(req: NextRequest) {
     const where: Record<string, unknown> = {};
     if (companyId) {
       const cid = Number(companyId);
-      if (!canAccessCompany(session, cid)) return forbidden();
+      if (!canAccessCompany(session!, cid)) return forbidden();
       where.companyId = cid;
     } else {
-      if (session.companies !== "all") {
-        where.companyId = { in: session.companies.split(",").map((s: string) => Number(s)) };
+      if (session!.companies !== "all") {
+        where.companyId = { in: session!.companies.split(",").map((s: string) => Number(s)) };
       }
     }
 
@@ -42,9 +42,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withAuth(req, async (_req, session) => {
-    if (!["ADMIN","HR"].includes(session.role)) return forbidden();
+    if (!["ADMIN","HR"].includes(session!.role)) return forbidden();
     const data = await req.json();
-    if (!canAccessCompany(session, data.companyId)) return forbidden();
+    if (!canAccessCompany(session!, data.companyId)) return forbidden();
 
     const { benefits, ...raw } = data;
 
