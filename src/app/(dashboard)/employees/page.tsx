@@ -213,13 +213,12 @@ function CompanyPicker({companies,onSelect}:any){
 }
 
 // ── Employee List ──
-function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp,onAddEmp}:any){
+function EmpList({company,companies,emps,depts,shifts,loading,onChangeCompany,onViewEmp,onAddEmp}:any){
   const [search,setSearch]=useState("");
   const [fDept,setFDept]=useState("ทั้งหมด");
   const [fStatus,setFStatus]=useState("ทั้งหมด");
   const [showWizard,setShowWizard]=useState(false);
   const [positions,setPositions]=useState([] as Pos[]);
-  const [shifts,setShifts]=useState([] as any[]);
 
   useEffect(()=>{
     apiFetch(`/api/companies/${company.id}/positions`).then((r:any)=>{if(r.data)setPositions(r.data);});
@@ -321,7 +320,7 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
           <div style={{padding:"9px 14px",borderTop:"1px solid #f0f2f5",fontSize:12,color:INK3}}>แสดง {list.length} จาก {emps.length} คน</div>
         </div>
       </div>
-      {showWizard&&<AddWizard company={company} depts={depts} positions={positions} onClose={()=>setShowWizard(false)} onSave={(e:any)=>{onAddEmp(e);setShowWizard(false);}}/>}
+      {showWizard&&<AddWizard company={company} depts={depts} positions={positions} shifts={shifts} onClose={()=>setShowWizard(false)} onSave={(e:any)=>{onAddEmp(e);setShowWizard(false);}}/>}
     </div>
   );
 }
@@ -1040,7 +1039,7 @@ export default function EmployeesPage(){
   return (
     <>
       <EmpList
-        company={company} companies={companies} emps={emps} depts={depts}
+        company={company} companies={companies} emps={emps} depts={depts} shifts={shifts}
         loading={loadingEmps}
         onChangeCompany={(c:any)=>{setCompany(c);setSelectedEmp(null);setEmps([]);}}
         onViewEmp={(e:any)=>setSelectedEmp(e)}
