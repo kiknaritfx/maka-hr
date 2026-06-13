@@ -20,14 +20,15 @@ export async function apiFetch<T = unknown>(
       if (qs) url += "?" + qs;
     }
     const res = await fetch(url, {
-      credentials: "include",  // ส่ง cookie ไปด้วยทุก request
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json", ...init.headers },
       ...init,
     });
     const json = await res.json();
     if (!json.success) return { data: null, error: json.message || "เกิดข้อผิดพลาด" };
     return { data: json.data, error: null };
-  } catch {
+  } catch (e: any) {
+    console.error("[apiFetch]", e?.message || e);
     return { data: null, error: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
   }
 }
