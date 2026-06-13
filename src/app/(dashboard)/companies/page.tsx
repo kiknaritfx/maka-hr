@@ -1075,4 +1075,3 @@ export default function CompaniesPage(){
   if(selected) return <CompanyDetail company={selected} onBack={()=>setSelected(null)} canEdit={canEdit}/>;
   return <CompanyList onSelect={setSelected} canEdit={canEdit}/>;
 }
-# trigger
