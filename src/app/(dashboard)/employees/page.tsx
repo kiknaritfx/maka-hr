@@ -430,7 +430,7 @@ function EmployeeScheduleTab({emp,allShifts}:{emp:any;allShifts:any[]}){
         </div>
       </div>
       {popover&&(
-        <div ref={popRef} style={{position:"fixed",left:Math.min(popover.x,window.innerWidth-220),top:Math.min(popover.y,window.innerHeight-300),zIndex:600,background:WHITE,borderRadius:12,boxShadow:"0 4px 20px rgba(28,40,51,.15)",border:"1px solid #eaecef",padding:10,width:210,fontFamily:F}}>
+        <div ref={popRef} style={{position:"fixed",left:Math.min(popover.x,(typeof window!=='undefined'?window.innerWidth:1200)-220),top:Math.min(popover.y,(typeof window!=='undefined'?window.innerHeight:800)-300),zIndex:600,background:WHITE,borderRadius:12,boxShadow:"0 4px 20px rgba(28,40,51,.15)",border:"1px solid #eaecef",padding:10,width:210,fontFamily:F}}>
           <div style={{fontSize:11,color:INK3,marginBottom:8,fontWeight:500}}>เลือกกะ / สถานะ</div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             {allShifts.map((sh:any)=>(
@@ -1027,7 +1027,7 @@ export default function EmployeesPage(){
   if(selectedEmp) return (
     <>
       <EmpProfile
-        emp={selectedEmp} company={company} allEmps={emps} depts={depts} positions={positions}
+        emp={selectedEmp} company={company} allEmps={emps} allShifts={shifts} depts={depts} positions={positions}
         onBack={()=>setSelectedEmp(null)}
         onUpdate={(updated:any)=>{setSelectedEmp(updated);setEmps((prev:any)=>prev.map((e:any)=>e.id===updated.id?updated:e));}}
         onOffboard={(e:any)=>setOffTarget(e)}
