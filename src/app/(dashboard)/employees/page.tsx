@@ -3,9 +3,9 @@ import React from "react";
 import { useEffect, useState, useRef } from "react";
 import { Company, Dept, Pos, Benefit, Employee } from "./types";
 import {
-  Users, Plus, Search, Download, ChevronRight, ChevronLeft, ChevronDown,
+  Users, Calendar, Clock, Plus, Search, Download, ChevronRight, ChevronLeft, ChevronDown,
   Pencil, Trash2, Check, X, ArrowLeft, UserPlus, UserMinus, UserX,
-  UserCheck, Briefcase, Clock, Gift, AlertCircle, FileText,
+  UserCheck, Briefcase, Gift, AlertCircle, FileText,
   Wallet, CalendarDays, Building2
 } from "lucide-react";
 import { apiFetch } from "@/hooks/useApi";
@@ -219,6 +219,7 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
   const [fStatus,setFStatus]=useState("ทั้งหมด");
   const [showWizard,setShowWizard]=useState(false);
   const [positions,setPositions]=useState([] as Pos[]);
+  const [shifts,setShifts]=useState([] as any[]);
 
   useEffect(()=>{
     apiFetch(`/api/companies/${company.id}/positions`).then((r:any)=>{if(r.data)setPositions(r.data);});
@@ -326,7 +327,133 @@ function EmpList({company,companies,emps,depts,loading,onChangeCompany,onViewEmp
 }
 
 // ── Employee Profile ──
-function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate,onOffboard}:any){
+// ── Employee Schedule Tab ──
+function EmployeeScheduleTab({emp,allShifts}:{emp:any;allShifts:any[]}){
+  const today=new Date();
+  const [viewMode,setViewMode]=useState<"month"|"week">("month");
+  const [year,setYear]=useState(today.getFullYear());
+  const [month,setMonth]=useState(today.getMonth());
+  const [weekStart,setWeekStart]=useState<Date>(()=>{const d=new Date(today);d.setDate(d.getDate()-d.getDay()+1);return d;});
+  const [schedule,setSchedule]=useState<Record<string,{shiftId:number|null;type:string}>>({});
+  const [popover,setPopover]=useState<{dateKey:string;x:number;y:number}|null>(null);
+  const popRef=useRef<HTMLDivElement>(null);
+  const TH_MO=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+  const DT=["อา","จ","อ","พ","พฤ","ศ","ส"];
+  function dInM(y:number,m:number){return new Date(y,m+1,0).getDate();}
+  function dk2(y:number,m:number,d:number){return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;}
+
+  useEffect(()=>{
+    function h(e:MouseEvent){if(popRef.current&&!popRef.current.contains(e.target as Node))setPopover(null);}
+    document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
+  },[]);
+
+  const dates:Date[]=viewMode==="month"
+    ?Array.from({length:dInM(year,month)},(_,i)=>new Date(year,month,i+1))
+    :Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(weekStart.getDate()+i);return d;});
+
+  function navPrev(){if(viewMode==="month"){if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);}else{const d=new Date(weekStart);d.setDate(d.getDate()-7);setWeekStart(d);}}
+  function navNext(){if(viewMode==="month"){if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}else{const d=new Date(weekStart);d.setDate(d.getDate()+7);setWeekStart(d);}}
+
+  let workDays=0,offDays=0,leaveDays=0,totalHours=0;
+  for(const d of dates){const key=dk2(d.getFullYear(),d.getMonth(),d.getDate());const e=schedule[key];if(!e)continue;if(e.type==="off")offDays++;else if(e.type==="leave")leaveDays++;else if(e.type==="shift"){workDays++;const sh=allShifts.find((s:any)=>s.id===e.shiftId);if(sh)totalHours+=sh.hoursPerDay;}}
+
+  const periodLabel=viewMode==="month"?`${TH_MO[month]} ${year+543}`:(()=>{const end=new Date(weekStart);end.setDate(end.getDate()+6);return `${weekStart.getDate()} ${TH_MO[weekStart.getMonth()]} – ${end.getDate()} ${TH_MO[end.getMonth()]} ${end.getFullYear()+543}`;})();
+
+  return(
+    <div style={{maxWidth:900}}>
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        {([[totalHours,"ชั่วโมงทำงาน",TEAL],[workDays,"วันทำงาน",INK2],[offDays,"วันหยุด",INK3],[leaveDays,"วันลา","#cc4444"]] as [number,string,string][]).map(([v,l,c])=>(
+          <div key={l} style={{background:WHITE,borderRadius:12,border:"1px solid #eaecef",padding:"10px 16px",minWidth:110}}>
+            <div style={{fontSize:20,fontWeight:600,color:c,lineHeight:1}}>{v}</div>
+            <div style={{fontSize:11,color:INK3,marginTop:3}}>{l}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:WHITE,borderRadius:14,border:"1px solid #eaecef",overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid #eaecef",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <IBtn Icon={ChevronLeft} label="ก่อน" onClick={navPrev}/>
+            <span style={{fontSize:13,fontWeight:500,color:INK,minWidth:140,textAlign:"center"}}>{periodLabel}</span>
+            <IBtn Icon={ChevronRight} label="ถัดไป" onClick={navNext}/>
+          </div>
+          <div style={{display:"flex",background:BG,borderRadius:9,padding:3,gap:2}}>
+            {(["week","month"] as const).map(v=>(
+              <button key={v} onClick={()=>setViewMode(v)} style={{padding:"4px 12px",borderRadius:7,fontSize:12,fontWeight:500,cursor:"pointer",border:"none",fontFamily:F,background:viewMode===v?WHITE:BG,color:viewMode===v?INK:INK3,boxShadow:viewMode===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{v==="week"?"สัปดาห์":"เดือน"}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{padding:"8px 16px",borderBottom:"1px solid #f0f2f5",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",background:"#fafbfc"}}>
+          <span style={{fontSize:11,color:INK3}}>เติมทั้งหมด:</span>
+          {allShifts.map((sh:any)=>(
+            <span key={sh.id} style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:sh.color,color:sh.textColor,fontWeight:500,cursor:"pointer"}}
+              onClick={()=>{const next={...schedule};for(const d of dates){const key=dk2(d.getFullYear(),d.getMonth(),d.getDate());const dow=d.getDay();next[key]=sh.workDays.includes(dow)?{shiftId:sh.id,type:"shift"}:{shiftId:null,type:"off"};}setSchedule(next);}}>
+              {sh.code} — {sh.name}
+            </span>
+          ))}
+          {allShifts.length===0&&<span style={{fontSize:11,color:INK3}}>ยังไม่มีกะในบริษัทนี้</span>}
+        </div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{borderCollapse:"collapse",fontSize:12,fontFamily:F,width:"100%"}}>
+            <thead>
+              <tr style={{background:BG}}>
+                {dates.map(d=>{const isToday=d.toDateString()===today.toDateString();const isSun=d.getDay()===0;const isSat=d.getDay()===6;return(
+                  <th key={d.toISOString()} style={{padding:"6px 4px",textAlign:"center",minWidth:viewMode==="month"?36:72,background:isToday?"#fff4f4":BG,borderLeft:"1px solid #f0f2f5"}}>
+                    <div style={{fontSize:9,color:isToday?CORAL:isSat||isSun?"#cc4444":INK3,opacity:.7}}>{DT[d.getDay()]}</div>
+                    <div style={{fontSize:11,fontWeight:isToday?700:500,color:isToday?CORAL:isSat||isSun?"#cc4444":INK}}>{d.getDate()}</div>
+                  </th>
+                );})}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                {dates.map(d=>{
+                  const key=dk2(d.getFullYear(),d.getMonth(),d.getDate());
+                  const entry=schedule[key];
+                  const sh=entry?.type==="shift"?allShifts.find((s:any)=>s.id===entry.shiftId):null;
+                  const isToday=d.toDateString()===today.toDateString();
+                  const isSun=d.getDay()===0;const isSat=d.getDay()===6;
+                  const isActive=popover?.dateKey===key;
+                  let bg=isToday?"#fffbe6":isSat||isSun?"#fafbfc":WHITE;
+                  let cell:React.ReactNode=<span style={{fontSize:9,color:"#e0e5ea"}}>·</span>;
+                  if(entry?.type==="off"){bg="#f4f6f8";cell=<span style={{fontSize:9,color:INK3}}>หยุด</span>;}
+                  else if(entry?.type==="leave"){bg="#fff0f0";cell=<span style={{fontSize:9,color:"#cc4444",fontWeight:500}}>ลา</span>;}
+                  else if(sh){bg=sh.color;cell=<span style={{fontSize:viewMode==="month"?9:11,fontWeight:600,color:sh.textColor}}>{sh.code}</span>;}
+                  return(
+                    <td key={key} onClick={ev=>{const r=ev.currentTarget.getBoundingClientRect();setPopover({dateKey:key,x:r.left,y:r.bottom+4});}}
+                      style={{padding:"3px 2px",textAlign:"center",cursor:"pointer",background:isActive?"#e6faf9":bg,borderLeft:"1px solid #f0f2f5",height:52,verticalAlign:"middle",outline:isActive?`2px solid ${TEAL}`:"none",outlineOffset:-2}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%"}}>{cell}</div>
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {popover&&(
+        <div ref={popRef} style={{position:"fixed",left:Math.min(popover.x,window.innerWidth-220),top:Math.min(popover.y,window.innerHeight-300),zIndex:600,background:WHITE,borderRadius:12,boxShadow:"0 4px 20px rgba(28,40,51,.15)",border:"1px solid #eaecef",padding:10,width:210,fontFamily:F}}>
+          <div style={{fontSize:11,color:INK3,marginBottom:8,fontWeight:500}}>เลือกกะ / สถานะ</div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            {allShifts.map((sh:any)=>(
+              <button key={sh.id} onClick={()=>{setSchedule(prev=>({...prev,[popover.dateKey]:{shiftId:sh.id,type:"shift"}}));setPopover(null);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:8,border:`1px solid ${sh.textColor}33`,background:sh.color,cursor:"pointer",fontFamily:F,textAlign:"left"}}>
+                <div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:sh.textColor}}>{sh.code} — {sh.name}</div><div style={{fontSize:10,color:sh.textColor,opacity:.8}}>{sh.startTime}–{sh.endTime}</div></div>
+                {schedule[popover.dateKey]?.shiftId===sh.id&&<Check size={12} strokeWidth={2.5} color={sh.textColor}/>}
+              </button>
+            ))}
+            <div style={{borderTop:"1px solid #f0f2f5",marginTop:4,paddingTop:4,display:"flex",gap:4}}>
+              <button onClick={()=>{setSchedule(prev=>({...prev,[popover.dateKey]:{shiftId:null,type:"off"}}));setPopover(null);}} style={{flex:1,padding:"6px",borderRadius:8,border:"1px solid #eaecef",background:"#f4f6f8",cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:500,color:INK3}}>วันหยุด</button>
+              <button onClick={()=>{setSchedule(prev=>({...prev,[popover.dateKey]:{shiftId:null,type:"leave"}}));setPopover(null);}} style={{flex:1,padding:"6px",borderRadius:8,border:"1px solid #f5c4c4",background:"#fff0f0",cursor:"pointer",fontFamily:F,fontSize:11,fontWeight:500,color:"#cc4444"}}>วันลา</button>
+              <button onClick={()=>{const n={...schedule};delete n[popover.dateKey];setSchedule(n);setPopover(null);}} style={{width:30,padding:"6px",borderRadius:8,border:"1px solid #eaecef",background:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:INK3}}><X size={11} strokeWidth={2}/></button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function EmpProfile({emp:initEmp,company,allEmps,allShifts,depts,positions,onBack,onUpdate,onOffboard}:any){
   const [emp,setEmp]=useState(initEmp as Employee);
   const [tab,setTab]=useState("info");
   const [editing,setEditing]=useState(false);
@@ -368,6 +495,8 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
     {key:"contract",Icon:FileText,label:"สัญญาจ้าง"},
     {key:"salary",Icon:Wallet,label:"เงินเดือน"},
     {key:"benefits",Icon:Gift,label:"สวัสดิการ"},
+    {key:"schedule",Icon:Calendar,label:"ตารางทำงาน"},
+    {key:"attendance",Icon:Clock,label:"ลงเวลา"},
     {key:"leave",Icon:UserCheck,label:"อนุมัติลา"},
   ];
 
@@ -539,6 +668,31 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
           </div>
         )}
 
+        {tab==="schedule"&&(
+          <EmployeeScheduleTab emp={emp} allShifts={allShifts}/>
+        )}
+
+        {tab==="attendance"&&(
+          <div style={{maxWidth:800}}>
+            <div style={{background:WHITE,borderRadius:14,border:"1px solid #eaecef",padding:32,textAlign:"center"}}>
+              <div style={{width:56,height:56,borderRadius:16,background:"#f0f2f5",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
+                <Clock size={24} strokeWidth={1.4} color={INK3}/>
+              </div>
+              <div style={{fontSize:15,fontWeight:500,color:INK,marginBottom:6}}>ระบบลงเวลาเข้า-ออกงาน</div>
+              <div style={{fontSize:13,color:INK3,marginBottom:16,lineHeight:1.6}}>
+                ฟีเจอร์นี้จะเปิดให้พนักงานลงเวลาเข้า-ออกงานได้ผ่านแอปพลิเคชัน<br/>
+                ข้อมูลการลงเวลาจะแสดงที่นี่เพื่อให้ HR ตรวจสอบและอนุมัติ
+              </div>
+              <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+                {[["ลงเวลาผ่านมือถือ","#e6faf9","#007d75"],["QR Code","#eeedfe","#534ab7"],["GPS Location","#fffbea","#8a6d00"]].map(([l,bg,tc])=>(
+                  <div key={l} style={{padding:"8px 16px",borderRadius:10,background:bg,color:tc,fontSize:12,fontWeight:500}}>{l}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+
         {tab==="leave"&&(
           <div style={{maxWidth:620}}>
             <div style={{background:WHITE,borderRadius:14,border:"1px solid #eaecef",padding:18,marginBottom:14}}>
@@ -582,7 +736,7 @@ function EmpProfile({emp:initEmp,company,allEmps,depts,positions,onBack,onUpdate
 }
 
 // ── Add Wizard ──
-function AddWizard({company,depts,positions,onClose,onSave}:any){
+function AddWizard({company,depts,positions,shifts,onClose,onSave}:any){
   const [step,setStep]=useState(1);
   const [form,setForm]=useState({
     firstName:"",lastName:"",firstNameEN:"",lastNameEN:"",nickname:"",gender:"ชาย",
@@ -591,6 +745,7 @@ function AddWizard({company,depts,positions,onClose,onSave}:any){
     contractType:"MONTHLY",hireDate:"",status:"PROBATION",
     baseSalary:"",bank:"ธนาคารกสิกรไทย",bankAccount:"",
     profileColor:"#e6faf9",profileTextColor:"#007d75",
+    shiftId:"",
   });
   const [errors,setErrors]=useState({} as Record<string,string>);
   const [saving,setSaving]=useState(false);
@@ -627,6 +782,7 @@ function AddWizard({company,depts,positions,onClose,onSave}:any){
       contractType:form.contractType,hireDate:form.hireDate,status:form.status,
       baseSalary:Number(form.baseSalary),bank:form.bank,bankAccount:form.bankAccount||undefined,
       profileColor:form.profileColor,profileTextColor:form.profileTextColor,canApproveLeave:false,
+      shiftId:form.shiftId?Number(form.shiftId):undefined,
     };
     const r:any=await apiFetch("/api/employees",{method:"POST",body:JSON.stringify(payload)});
     if(r.data) onSave(r.data as Employee);
@@ -704,6 +860,22 @@ function AddWizard({company,depts,positions,onClose,onSave}:any){
               <FInput label="เงินเดือนฐาน (฿/เดือน)" req={true} type="number" value={form.baseSalary} onChange={e=>{setForm({...form,baseSalary:e.target.value});setErrors({...errors,baseSalary:""}); }} error={errors.baseSalary} placeholder="0"/>
               <FSelect label="ธนาคาร" value={form.bank} onChange={e=>setForm({...form,bank:e.target.value})} options={BANK_LIST}/>
               <div style={{gridColumn:"1/-1"}}><FInput label="เลขบัญชี" value={form.bankAccount} onChange={e=>setForm({...form,bankAccount:e.target.value})} placeholder="XXX-X-XXXXX-X"/></div>
+              <div style={{gridColumn:"1/-1"}}>
+                <FL>กะการทำงาน (ค่าเริ่มต้น)</FL>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  <button type="button" onClick={()=>setForm({...form,shiftId:""})}
+                    style={{padding:"8px 14px",borderRadius:10,border:`2px solid ${!form.shiftId?TEAL:"#dde2e8"}`,background:!form.shiftId?"#e6faf9":WHITE,cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:!form.shiftId?500:400,color:!form.shiftId?TEAL:INK3}}>
+                    ไม่กำหนด
+                  </button>
+                  {(shifts||[]).map((sh:any)=>(
+                    <button key={sh.id} type="button" onClick={()=>setForm({...form,shiftId:String(sh.id)})}
+                      style={{padding:"8px 14px",borderRadius:10,border:`2px solid ${String(form.shiftId)===String(sh.id)?sh.textColor:"#dde2e8"}`,background:String(form.shiftId)===String(sh.id)?sh.color:WHITE,cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:500,color:String(form.shiftId)===String(sh.id)?sh.textColor:INK2,display:"flex",flexDirection:"column",gap:2,alignItems:"flex-start"}}>
+                      <span style={{fontWeight:600}}>{sh.code} — {sh.name}</span>
+                      <span style={{fontSize:10,opacity:.8}}>{sh.startTime}–{sh.endTime} · {sh.hoursPerDay}ชม./วัน</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
           {step===3&&(
@@ -725,6 +897,7 @@ function AddWizard({company,depts,positions,onClose,onSave}:any){
                   ["ประเภทสัญญา",CONTRACT_LABELS[form.contractType]||form.contractType],
                   ["วันเริ่มงาน",formatThai(form.hireDate)],
                   ["เงินเดือน",`${parseInt(form.baseSalary).toLocaleString()} ฿/เดือน`],
+                  ["กะการทำงาน",(shifts||[]).find((s:any)=>String(s.id)===form.shiftId)?.name||"ไม่กำหนด"],
                   ["โทรศัพท์",form.phone],
                   ["อีเมล",form.email],
                 ].map(([l,v],i,a)=>(
@@ -807,6 +980,7 @@ export default function EmployeesPage(){
   const [emps,setEmps]=useState([] as Employee[]);
   const [depts,setDepts]=useState([] as Dept[]);
   const [positions,setPositions]=useState([] as Pos[]);
+  const [shifts,setShifts]=useState([] as any[]);
   const [selectedEmp,setSelectedEmp]=useState(null as Employee|null);
   const [offTarget,setOffTarget]=useState(null as Employee|null);
   const [loadingCos,setLoadingCos]=useState(true);
@@ -828,10 +1002,12 @@ export default function EmployeesPage(){
       apiFetch(`/api/employees?companyId=${company.id}`),
       apiFetch(`/api/companies/${company.id}/departments`),
       apiFetch(`/api/companies/${company.id}/positions`),
-    ]).then(([er,dr,pr]:[any,any,any])=>{
+      apiFetch(`/api/shifts?companyId=${company.id}`),
+    ]).then(([er,dr,pr,sr]:[any,any,any,any])=>{
       if(er.data)setEmps(er.data as Employee[]);
       if(dr.data)setDepts(dr.data as Dept[]);
       if(pr.data)setPositions(pr.data as Pos[]);
+      if(sr.data)setShifts(sr.data as any[]);
     }).finally(()=>setLoadingEmps(false));
   },[company?.id]);
 
