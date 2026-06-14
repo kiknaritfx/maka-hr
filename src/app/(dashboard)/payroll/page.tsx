@@ -47,7 +47,7 @@ function calcSSO(base:number):number{ return Math.min(Math.floor(base*0.05),750)
 
 // ── Types ──
 interface Company{id:number;code:string;name:string;nameTH:string;color:string;textColor:string;logoUrl?:string;payrollCycle?:string;_count?:{employees:number};}
-interface Employee{id:number;empCode:string;firstName:string;lastName:string;contractType:string;baseSalary:number;profileColor:string;profileTextColor:string;department?:{name:string};position?:{name:string};benefits?:{id:number;name:string;amount:number}[];}
+interface Employee{id:number;empCode:string;firstName:string;lastName:string;email?:string;contractType:string;baseSalary:number;profileColor:string;profileTextColor:string;department?:{name:string};position?:{name:string};benefits?:{id:number;name:string;amount:number}[];}
 interface PayrollItem{id:number;employeeId:number;baseAmount:number;benefits:number;bonus:number;tax:number;sso:number;otherDeduct:number;netAmount:number;hoursWorked?:number;employee?:Employee;}
 interface PayrollRun{id:number;companyId:number;month:number;year:number;status:string;totalGross:number;totalBenefits:number;totalBonus:number;totalTax:number;totalSso:number;totalNet:number;approvedAt?:string;paidAt?:string;company?:Company;items?:PayrollItem[];}
 
@@ -558,6 +558,217 @@ function RunPayrollPage({company,month,year,onBack,onComplete}:{company:Company;
   );
 }
 
+
+// ════════════════════════════════════════
+//  PAYSLIP MODAL (preview + print)
+// ════════════════════════════════════════
+function PayslipModal({item,run,company,onClose}:{item:PayrollItem;run:PayrollRun;company:Company;onClose:()=>void}){
+  const emp=item.employee!;
+  const gross=Number(item.baseAmount);
+  const ben=Number(item.benefits);
+  const bonus=Number(item.bonus);
+  const tax=Number(item.tax);
+  const sso=Number(item.sso);
+  const other=Number(item.otherDeduct);
+  const net=Number(item.netAmount);
+
+  function printPayslip(){
+    const w=window.open("","_blank","width=600,height=800");
+    if(!w) return;
+    w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"/>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Sarabun',sans-serif;background:#fff;padding:24px;color:#1C2833;font-size:13px;}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:2px solid #00B4A9;margin-bottom:16px;}
+  .co-name{font-size:18px;font-weight:600;color:#00B4A9;}
+  .title{font-size:12px;color:#9aaab8;margin-top:2px;}
+  .period{font-size:13px;font-weight:500;color:#1C2833;}
+  .emp-box{background:#f4f6f8;border-radius:8px;padding:10px 14px;margin-bottom:16px;}
+  .emp-name{font-size:15px;font-weight:600;color:#1C2833;}
+  .emp-sub{font-size:11px;color:#9aaab8;margin-top:2px;}
+  .section{font-size:10px;font-weight:600;color:#9aaab8;text-transform:uppercase;letter-spacing:.6px;margin:12px 0 6px;}
+  .row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f2f5;font-size:13px;}
+  .add{color:#00B4A9;font-weight:500;}
+  .ded{color:#cc4444;font-weight:500;}
+  .def{font-weight:500;}
+  .net-box{margin-top:14px;background:#e6faf9;border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;}
+  .net-label{font-size:14px;font-weight:600;color:#007d75;}
+  .net-value{font-size:22px;font-weight:600;color:#FF6B6B;}
+  .footer{margin-top:16px;font-size:10px;color:#9aaab8;text-align:center;border-top:1px solid #eaecef;padding-top:10px;}
+  @media print{body{padding:10px;} .no-print{display:none;}}
+</style></head><body>
+<div class="no-print" style="margin-bottom:16px;display:flex;gap:8px;">
+  <button onclick="window.print()" style="background:#00B4A9;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Sarabun',sans-serif;">🖨️ พิมพ์ / Save PDF</button>
+  <button onclick="window.close()" style="background:#f4f6f8;color:#5a6a78;border:1px solid #dde2e8;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Sarabun',sans-serif;">ปิด</button>
+</div>
+<div class="header">
+  <div><div class="co-name">${company.name}</div><div class="title">สลิปเงินเดือน</div></div>
+  <div class="period">${MONTHS[run.month]} ${run.year+543}</div>
+</div>
+<div class="emp-box">
+  <div class="emp-name">${emp.firstName} ${emp.lastName}</div>
+  <div class="emp-sub">${emp.empCode} · ${emp.position?.name||""} · ${emp.department?.name||""}</div>
+</div>
+<div class="section">รายรับ</div>
+<div class="row"><span>เงินเดือนฐาน</span><span class="def">฿${fmt(gross)}</span></div>
+${ben>0?`<div class="row"><span>สวัสดิการ</span><span class="add">+฿${fmt(ben)}</span></div>`:""}
+${bonus>0?`<div class="row"><span>โบนัส</span><span class="add">+฿${fmt(bonus)}</span></div>`:""}
+${(tax>0||sso>0||other>0)?`<div class="section">รายการหัก</div>
+${tax>0?`<div class="row"><span>ภาษีหัก ณ ที่จ่าย</span><span class="ded">-฿${fmt(tax)}</span></div>`:""}
+${sso>0?`<div class="row"><span>ประกันสังคม</span><span class="ded">-฿${fmt(sso)}</span></div>`:""}
+${other>0?`<div class="row"><span>หักอื่นๆ</span><span class="ded">-฿${fmt(other)}</span></div>`:""}`:""}
+<div class="net-box">
+  <span class="net-label">เงินเดือนสุทธิ</span>
+  <span class="net-value">฿${fmt(net)}</span>
+</div>
+<div class="footer">เอกสารออกโดยระบบ MAKA HR · ${new Date().toLocaleDateString("th-TH",{year:"numeric",month:"long",day:"numeric"})}</div>
+</body></html>`);
+    w.document.close();
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(28,40,51,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:700,fontFamily:F}}>
+      <div style={{background:WHITE,borderRadius:18,width:500,maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 8px 40px rgba(28,40,51,.2)"}}>
+        {/* Header */}
+        <div style={{padding:"16px 20px",borderBottom:"1px solid #eaecef",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{fontSize:15,fontWeight:500,color:INK}}>Payslip Preview</div>
+          <button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",color:INK3,display:"flex"}}><X size={18} strokeWidth={1.8}/></button>
+        </div>
+        {/* Preview */}
+        <div style={{flex:1,overflow:"auto",padding:"20px 24px",background:BG}}>
+          <div style={{background:WHITE,borderRadius:14,padding:22,boxShadow:"0 2px 12px rgba(28,40,51,.08)"}}>
+            {/* Company header */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",paddingBottom:14,borderBottom:`2px solid ${TEAL}`,marginBottom:16}}>
+              <div>
+                {company.logoUrl?<img src={company.logoUrl} alt={company.code} style={{height:28,objectFit:"contain",marginBottom:4}}/>
+                  :<div style={{fontSize:17,fontWeight:500,color:TEAL}}>{company.name}</div>}
+                <div style={{fontSize:11,color:INK3}}>สลิปเงินเดือน</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:13,fontWeight:500,color:INK}}>{MONTHS[run.month]} {run.year+543}</div>
+                <div style={{fontSize:11,color:INK3,marginTop:2}}>{run.paidAt?`จ่ายวันที่ ${new Date(run.paidAt).toLocaleDateString("th-TH")}`:"รอจ่าย"}</div>
+              </div>
+            </div>
+            {/* Employee */}
+            <div style={{background:BG,borderRadius:10,padding:"10px 14px",marginBottom:16}}>
+              <div style={{fontSize:15,fontWeight:500,color:INK}}>{emp.firstName} {emp.lastName}</div>
+              <div style={{fontSize:11,color:INK3,marginTop:2}}>{emp.empCode} · {emp.position?.name||""} · {emp.department?.name||""}</div>
+            </div>
+            {/* รายรับ */}
+            <div style={{fontSize:10,fontWeight:500,color:INK3,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>รายรับ</div>
+            {([["เงินเดือนฐาน",gross,INK],ben>0&&["สวัสดิการ",ben,TEAL],bonus>0&&["โบนัส",bonus,"#8a6d00"]] as any[]).filter(Boolean).map(([l,v,c]:any)=>(
+              <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f4f6f8",fontSize:13}}>
+                <span style={{color:INK2}}>{l}</span><span style={{fontWeight:500,color:c}}>฿{fmt(v)}</span>
+              </div>
+            ))}
+            {/* รายหัก */}
+            {(tax>0||sso>0||other>0)&&<>
+              <div style={{fontSize:10,fontWeight:500,color:INK3,textTransform:"uppercase",letterSpacing:".5px",margin:"12px 0 6px"}}>รายการหัก</div>
+              {([tax>0&&["ภาษีหัก ณ ที่จ่าย",tax,"#cc4444"],sso>0&&["ประกันสังคม",sso,"#854f0b"],other>0&&["หักอื่นๆ",other,"#534ab7"]] as any[]).filter(Boolean).map(([l,v,c]:any)=>(
+                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f4f6f8",fontSize:13}}>
+                  <span style={{color:INK2}}>{l}</span><span style={{fontWeight:500,color:c}}>-฿{fmt(v)}</span>
+                </div>
+              ))}
+            </>}
+            {/* Net */}
+            <div style={{marginTop:14,background:"#e6faf9",borderRadius:10,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:14,fontWeight:500,color:"#007d75"}}>เงินเดือนสุทธิ</span>
+              <span style={{fontSize:22,fontWeight:500,color:CORAL}}>฿{fmt(net)}</span>
+            </div>
+            <div style={{marginTop:14,fontSize:10,color:INK3,textAlign:"center",paddingTop:10,borderTop:"1px solid #eaecef"}}>
+              เอกสารออกโดยระบบ MAKA HR · {new Date().toLocaleDateString("th-TH",{year:"numeric",month:"long",day:"numeric"})}
+            </div>
+          </div>
+        </div>
+        {/* Actions */}
+        <div style={{padding:"12px 20px",borderTop:"1px solid #eaecef",display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <Btn variant="ghost" onClick={onClose}>ปิด</Btn>
+          <Btn variant="teal" onClick={printPayslip}><Download size={13} strokeWidth={1.8}/> บันทึก PDF / พิมพ์</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════
+//  EMAIL MODAL
+// ════════════════════════════════════════
+function EmailModal({target,items,run,company,sending,result,onClose,onSend}:{target:PayrollItem|"all";items:PayrollItem[];run:PayrollRun;company?:Company;sending:boolean;result:any;onSend:()=>void;onClose:()=>void}){
+  const isAll=target==="all";
+  const targets=isAll?items:[target as PayrollItem];
+  const hasResult=!!result;
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(28,40,51,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:700,fontFamily:F}}>
+      <div style={{background:WHITE,borderRadius:18,width:440,boxShadow:"0 8px 40px rgba(28,40,51,.2)",overflow:"hidden"}}>
+        <div style={{padding:"16px 20px",borderBottom:"1px solid #eaecef",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{fontSize:15,fontWeight:500,color:INK}}>{isAll?"ส่ง Payslip ทั้งหมด":"ส่ง Payslip"}</div>
+          <button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",color:INK3,display:"flex"}}><X size={18} strokeWidth={1.8}/></button>
+        </div>
+        <div style={{padding:"18px 20px"}}>
+          {!hasResult?(
+            <>
+              <div style={{background:BG,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:500,color:INK,marginBottom:8}}>จะส่งให้:</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:180,overflow:"auto"}}>
+                  {targets.map(item=>{
+                    const emp=item.employee;
+                    if(!emp) return null;
+                    return(
+                      <div key={item.id} style={{display:"flex",alignItems:"center",gap:8}}>
+                        <Avatar emp={emp} size={26}/>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,fontWeight:500,color:INK}}>{emp.firstName} {emp.lastName}</div>
+                          <div style={{fontSize:11,color:emp.email?INK3:"#cc4444"}}>{emp.email||"ไม่มีอีเมล"}</div>
+                        </div>
+                        {!emp.email&&<AlertCircle size={14} strokeWidth={2} color="#cc4444"/>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{background:"#fffbea",border:"1px solid #ffe9a0",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",gap:8,fontSize:12,color:"#8a6d00"}}>
+                <Info size={14} strokeWidth={2} style={{flexShrink:0,marginTop:1}}/>
+                ระบบจะส่งสลิปเงินเดือน {MONTHS[run.month]} {run.year+543} ไปยังอีเมลของพนักงาน
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
+                <Btn variant="teal" onClick={onSend} disabled={sending}><Send size={13} strokeWidth={2}/> {sending?"กำลังส่ง...":"ยืนยันส่ง Email"}</Btn>
+              </div>
+            </>
+          ):(
+            <>
+              <div style={{textAlign:"center",marginBottom:16}}>
+                <div style={{width:52,height:52,borderRadius:"50%",background:result.sent===result.total?"#e6faf9":"#fff0f0",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 10px"}}>
+                  {result.sent===result.total
+                    ?<Check size={24} strokeWidth={2} color={TEAL}/>
+                    :<AlertCircle size={24} strokeWidth={2} color="#cc4444"/>}
+                </div>
+                <div style={{fontSize:15,fontWeight:500,color:INK}}>ส่งสำเร็จ {result.sent}/{result.total} ราย</div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16,maxHeight:200,overflow:"auto"}}>
+                {result.results.map((r:any,i:number)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:r.success?"#e6faf9":"#fff0f0",borderRadius:9}}>
+                    {r.success?<Check size={14} strokeWidth={2} color={TEAL}/>:<X size={14} strokeWidth={2} color="#cc4444"/>}
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:500,color:INK}}>{r.name}</div>
+                      <div style={{fontSize:11,color:r.success?INK3:"#cc4444"}}>{r.success?r.email:r.error}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"flex",justifyContent:"flex-end"}}>
+                <Btn variant="teal" onClick={onClose}>เสร็จสิ้น</Btn>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════
 //  SCREEN 4: PAYROLL DETAIL
 // ════════════════════════════════════════
@@ -569,6 +780,10 @@ function PayrollDetail({run:initRun,company,onBack}:{run:PayrollRun;company:Comp
   const [tab,setTab]=useState<"summary"|"detail"|"payslip"|"bank">("summary");
   const [selItem,setSelItem]=useState<PayrollItem|null>(null);
   const [actioning,setActioning]=useState(false);
+  const [payslipTarget,setPayslipTarget]=useState<PayrollItem|null>(null);
+  const [emailTarget,setEmailTarget]=useState<PayrollItem|"all"|null>(null);
+  const [emailSending,setEmailSending]=useState(false);
+  const [emailResult,setEmailResult]=useState<{sent:number;total:number;results:any[]}|null>(null);
 
   useEffect(()=>{
     apiFetch<{items:PayrollItem[]}>(`/api/payroll/${run.id}`).then((r:any)=>{
@@ -587,6 +802,17 @@ function PayrollDetail({run:initRun,company,onBack}:{run:PayrollRun;company:Comp
     const r:any=await apiFetch(`/api/payroll/${run.id}/pay`,{method:"POST"});
     if(r.data) setRun(r.data as PayrollRun);
     setActioning(false);
+  }
+
+  async function sendEmail(target:PayrollItem|"all"){
+    setEmailSending(true); setEmailResult(null);
+    const body=target==="all"
+      ?{sendAll:true}
+      :{employeeIds:[target.employeeId]};
+    const r:any=await apiFetch(`/api/payroll/${run.id}/email`,{method:"POST",body:JSON.stringify(body)});
+    if(r.data) setEmailResult(r.data);
+    else setEmailResult({sent:0,total:0,results:[{name:"",email:"",success:false,error:r.error||"เกิดข้อผิดพลาด"}]});
+    setEmailSending(false);
   }
 
   const canApprove=run.status==="REVIEW"&&user?.role==="ADMIN";
@@ -723,8 +949,8 @@ function PayrollDetail({run:initRun,company,onBack}:{run:PayrollRun;company:Comp
                 </div>
               )}
               <div style={{display:"flex",gap:8}}>
-                <Btn variant="ghost"><Eye size={13} strokeWidth={1.8}/> Preview Payslip</Btn>
-                <Btn variant="ghost" style={{opacity:isPaid?1:.4}}><Download size={13} strokeWidth={1.8}/> Download PDF</Btn>
+                <Btn variant="ghost" onClick={()=>selItem&&setPayslipTarget(selItem)}><Eye size={13} strokeWidth={1.8}/> Preview Payslip</Btn>
+                <Btn variant="ghost" onClick={()=>selItem&&setPayslipTarget(selItem)} style={{opacity:isPaid?1:.4}}><Download size={13} strokeWidth={1.8}/> Download PDF</Btn>
                 {!isPaid&&<span style={{fontSize:11,color:INK3,display:"flex",alignItems:"center"}}>ดาวน์โหลดได้หลังยืนยันการจ่าย</span>}
               </div>
             </div>
@@ -775,8 +1001,8 @@ function PayrollDetail({run:initRun,company,onBack}:{run:PayrollRun;company:Comp
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
               <div style={{fontSize:14,fontWeight:500,color:INK}}>Payslip พนักงาน — {MONTHS[run.month]} {run.year+543}</div>
               <div style={{display:"flex",gap:8}}>
-                <Btn variant="ghost"><Download size={13} strokeWidth={1.8}/> Download ทั้งหมด (PDF)</Btn>
-                <Btn variant="teal" disabled={!isPaid}><Send size={13} strokeWidth={2}/> ส่งทาง Email</Btn>
+                <Btn variant="ghost" onClick={()=>window.print()}><Download size={13} strokeWidth={1.8}/> Download ทั้งหมด (PDF)</Btn>
+                <Btn variant="teal" disabled={!isPaid} onClick={()=>setEmailTarget("all")}><Send size={13} strokeWidth={2}/> ส่งทาง Email</Btn>
               </div>
             </div>
             {!isPaid&&<div style={{background:"#fffbea",border:"1px solid #ffe9a0",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",gap:8}}>
@@ -844,6 +1070,25 @@ function PayrollDetail({run:initRun,company,onBack}:{run:PayrollRun;company:Comp
           </div>
         )}
       </div>
+
+      {/* ── Payslip Preview Modal ── */}
+      {payslipTarget&&payslipTarget.employee&&(
+        <PayslipModal item={payslipTarget} run={run} company={company} onClose={()=>setPayslipTarget(null)}/>
+      )}
+
+      {/* ── Email Confirm Modal ── */}
+      {emailTarget!==null&&(
+        <EmailModal
+          target={emailTarget}
+          items={items}
+          run={run}
+          company={company}
+          sending={emailSending}
+          result={emailResult}
+          onClose={()=>{setEmailTarget(null);setEmailResult(null);}}
+          onSend={()=>sendEmail(emailTarget)}
+        />
+      )}
     </div>
   );
 }
